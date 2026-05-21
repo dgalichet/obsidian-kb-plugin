@@ -1,0 +1,9 @@
+{
+  "id": "okb",
+  "name": "Obsidian Knowledge Base",
+  "version": "0.1.0",
+  "minAppVersion": "1.5.0",
+  "description": "Search the current vault through a local obsidian-kb semantic index.",
+  "author": "dgalichet",
+  "isDesktopOnly": true
+}

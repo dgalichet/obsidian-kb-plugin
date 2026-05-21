@@ -1,0 +1,26 @@
+{
+  "name": "obsidian-kb-plugin",
+  "version": "0.1.0",
+  "description": "Obsidian panel for local obsidian-kb semantic search.",
+  "main": "main.js",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "tsc --noEmit --skipLibCheck && node esbuild.config.mjs production",
+    "version": "node version-bump.mjs && git add manifest.json versions.json"
+  },
+  "keywords": [
+    "obsidian",
+    "obsidian-plugin",
+    "semantic-search",
+    "obsidian-kb"
+  ],
+  "author": "dgalichet",
+  "license": "MIT OR Apache-2.0",
+  "devDependencies": {
+    "@types/node": "^20.17.10",
+    "builtin-modules": "^3.3.0",
+    "esbuild": "^0.24.2",
+    "obsidian": "^1.7.2",
+    "typescript": "^5.7.2"
+  }
+}
