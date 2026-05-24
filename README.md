@@ -1,5 +1,11 @@
 # OKB
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/obsidian-kb-logo.png">
+  <source media="(prefers-color-scheme: light)" srcset="assets/obsidian-kb-logo-light.png">
+  <img alt="obsidian-kb logo" src="assets/obsidian-kb-logo-light.png" width="720">
+</picture>
+
 Desktop-only Obsidian plugin for `obsidian-kb`, the local Obsidian Knowledge
 Base search service.
 
@@ -82,6 +88,25 @@ For manual release installation, copy these release assets into the same
 - `manifest.json`
 - `main.js`
 - `styles.css`
+
+### Install With BRAT
+
+BRAT can install OKB directly from GitHub once a release has been published.
+It only installs the Obsidian plugin assets; you still need to install the
+`obsidian-kb` CLI separately.
+
+1. Install and enable
+   [Obsidian42 - BRAT](https://github.com/TfTHacker/obsidian42-brat) from
+   Obsidian's community plugins.
+2. Run **BRAT: Add a beta plugin for testing** from the command palette.
+3. Enter this repository URL:
+
+   ```text
+   https://github.com/dgalichet/obsidian-kb-plugin
+   ```
+
+4. Choose the latest version when BRAT asks which version to install.
+5. Enable **Obsidian Knowledge Base** from Obsidian's community plugins list.
 
 ## First-Time Setup
 
