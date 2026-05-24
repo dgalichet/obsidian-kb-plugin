@@ -133,6 +133,18 @@ The release tag must match `manifest.json`'s `version` exactly.
 The release contains only the Obsidian plugin assets. Users must install
 `obsidian-kb` separately before OKB can start or connect to the local service.
 
+Releases are published by GitHub Actions when pushing a version tag in the
+`vX.Y.Z` format. The tag must point to a commit reachable from `main`, and the
+`X.Y.Z` part must match `package.json` and `manifest.json`.
+
+```bash
+npm version patch
+git push origin main --follow-tags
+```
+
+The release workflow builds the plugin and uploads the Obsidian release assets:
+`main.js`, `manifest.json`, and `styles.css`.
+
 ## License
 
 Licensed under either of:

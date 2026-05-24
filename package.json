@@ -6,6 +6,10 @@
   "scripts": {
     "dev": "node esbuild.config.mjs",
     "build": "tsc --noEmit --skipLibCheck && node esbuild.config.mjs production",
+    "validate": "node scripts/validate-plugin-release.mjs",
+    "validate:assets": "node scripts/validate-plugin-release.mjs --assets",
+    "validate:release": "node scripts/validate-plugin-release.mjs --release",
+    "check": "npm run validate && npm run build && npm run validate:assets",
     "version": "node version-bump.mjs && git add manifest.json versions.json"
   },
   "keywords": [
