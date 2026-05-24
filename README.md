@@ -3,6 +3,11 @@
 Desktop-only Obsidian plugin for `obsidian-kb`, the local Obsidian Knowledge
 Base search service.
 
+OKB is not a standalone search engine. It is an Obsidian UI and lifecycle
+wrapper around the separate `obsidian-kb` CLI, which must be installed on the
+same machine. On desktop, OKB starts `obsidian-kb serve` as a local external
+process and talks to it over localhost HTTP.
+
 OKB adds a right-side panel for searching the current vault, finding notes
 related to the active note, and refreshing the local `obsidian-kb` index from
 inside Obsidian.
@@ -20,11 +25,25 @@ inside Obsidian.
 
 ## Requirements
 
-- Obsidian Desktop.
-- The `obsidian-kb` CLI installed locally.
+- Obsidian Desktop. OKB does not support Obsidian Mobile.
+- The `obsidian-kb` CLI installed locally on the same computer.
 
-The plugin is desktop-only because it uses Node.js process APIs to launch and
-manage a local `obsidian-kb serve` process.
+The plugin is desktop-only because it uses Electron/Node.js process APIs to
+launch and manage `obsidian-kb serve`. Mobile Obsidian cannot spawn that local
+process, and the plugin release does not bundle the `obsidian-kb` executable.
+
+## Runtime Model
+
+OKB has two parts at runtime:
+
+- The Obsidian plugin assets: `manifest.json`, `main.js`, and `styles.css`.
+- The external `obsidian-kb` binary, installed separately and launched as
+  `obsidian-kb serve`.
+
+When auto-start is enabled, OKB starts the service from inside Obsidian. If an
+`obsidian-kb serve` instance is already running, OKB can connect to it instead.
+On shutdown, OKB only stops the process it started itself; a service started
+manually in a terminal is left running.
 
 ## Install `obsidian-kb`
 
@@ -110,6 +129,9 @@ The Obsidian plugin id is `okb`. For a GitHub release, attach:
 - `styles.css`
 
 The release tag must match `manifest.json`'s `version` exactly.
+
+The release contains only the Obsidian plugin assets. Users must install
+`obsidian-kb` separately before OKB can start or connect to the local service.
 
 ## License
 
