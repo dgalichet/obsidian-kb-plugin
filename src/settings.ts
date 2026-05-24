@@ -190,7 +190,7 @@ export class ObsidianKbSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Include chunk text")
-      .setDesc("Return chunk text in search results. Snippets remain available when disabled.")
+      .setDesc("Show chunk excerpts in result cards. Search also requests full chunk text when enabled.")
       .addToggle((toggle) =>
         toggle.setValue(this.plugin.settings.includeText).onChange(async (value) => {
           this.plugin.settings.includeText = value;

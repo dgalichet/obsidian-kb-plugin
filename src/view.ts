@@ -527,42 +527,10 @@ export class ObsidianKbView extends ItemView {
     }
 
     for (const hit of hits) {
-      const bestChunk = hit.chunks?.[0];
-      this.renderResultCard(this.searchResultsEl, {
-        path: hit.path ?? hit.note_path ?? bestChunk?.path ?? bestChunk?.note_path ?? "",
-        documentKind: hit.document_kind ?? bestChunk?.document_kind,
-        title: hit.title,
-        heading:
-          hit.best_heading ??
-          hit.heading_path ??
-          hit.heading ??
-          bestChunk?.heading_path ??
-          bestChunk?.heading,
-        chunkId: hit.best_chunk_id ?? hit.chunk_id ?? bestChunk?.chunk_id,
-        lineStart:
-          hit.best_start_line ??
-          hit.line_start ??
-          hit.start_line ??
-          bestChunk?.start_line ??
-          bestChunk?.line_start,
-        lineEnd:
-          hit.best_end_line ??
-          hit.line_end ??
-          hit.end_line ??
-          bestChunk?.end_line ??
-          bestChunk?.line_end,
-        startPage:
-          hit.best_start_page ??
-          hit.start_page ??
-          bestChunk?.start_page,
-        endPage:
-          hit.best_end_page ??
-          hit.end_page ??
-          bestChunk?.end_page,
-        snippet: hit.best_snippet ?? hit.snippet ?? bestChunk?.snippet ?? hit.text,
-        score: hit.final_score ?? hit.score,
-        tags: getLabels(hit),
-      });
+      this.renderResultCard(
+        this.searchResultsEl,
+        toSearchResultCardData(hit, this.plugin.settings.includeText),
+      );
     }
   }
 
@@ -574,39 +542,10 @@ export class ObsidianKbView extends ItemView {
     }
 
     for (const note of notes) {
-      const bestChunk = note.chunks?.[0];
-      this.renderResultCard(this.relatedResultsEl, {
-        path: note.path ?? note.note_path ?? bestChunk?.path ?? bestChunk?.note_path ?? "",
-        documentKind: note.document_kind ?? bestChunk?.document_kind,
-        title: note.title ?? bestChunk?.title,
-        heading:
-          note.best_heading ??
-          getStringProperty(note, "heading_path") ??
-          getStringProperty(note, "heading") ??
-          bestChunk?.heading_path ??
-          bestChunk?.heading,
-        chunkId: note.best_chunk_id ?? bestChunk?.chunk_id,
-        lineStart:
-          getNumberProperty(note, "line_start") ??
-          getNumberProperty(note, "start_line") ??
-          bestChunk?.start_line ??
-          bestChunk?.line_start,
-        lineEnd:
-          getNumberProperty(note, "line_end") ??
-          getNumberProperty(note, "end_line") ??
-          bestChunk?.end_line ??
-          bestChunk?.line_end,
-        startPage:
-          note.start_page ??
-          getNumberProperty(note, "start_page") ??
-          bestChunk?.start_page,
-        endPage:
-          note.end_page ??
-          getNumberProperty(note, "end_page") ??
-          bestChunk?.end_page,
-        score: note.score ?? note.best_score,
-        tags: mergeLabels(getLabels(note), getLabels(bestChunk)),
-      });
+      this.renderResultCard(
+        this.relatedResultsEl,
+        toRelatedResultCardData(note, this.plugin.settings.includeText),
+      );
     }
   }
 
@@ -877,6 +816,93 @@ function basename(path: string): string {
 
 function normalizeWhitespace(value: string): string {
   return value.replace(/\s+/g, " ").trim();
+}
+
+function toSearchResultCardData(
+  hit: KbSearchHit,
+  showChunkText: boolean,
+): ResultCardData {
+  const bestChunk = hit.chunks?.[0];
+  return toResultCardData(hit, bestChunk, {
+    snippet: showChunkText ? getResultSnippet(hit, bestChunk, true) : undefined,
+    score: getNumberProperty(hit, "final_score") ?? getNumberProperty(hit, "score"),
+  });
+}
+
+function toRelatedResultCardData(
+  note: RelatedNote,
+  showChunkText: boolean,
+): ResultCardData {
+  const bestChunk = note.chunks?.[0];
+  return toResultCardData(note, bestChunk, {
+    snippet: showChunkText ? getResultSnippet(note, bestChunk, false) : undefined,
+    score: getNumberProperty(note, "score") ?? getNumberProperty(note, "best_score"),
+  });
+}
+
+function toResultCardData(
+  result: unknown,
+  bestChunk: KbSearchHit | undefined,
+  overrides: Partial<ResultCardData>,
+): ResultCardData {
+  return {
+    path:
+      getStringProperty(result, "path") ??
+      getStringProperty(result, "note_path") ??
+      bestChunk?.path ??
+      bestChunk?.note_path ??
+      "",
+    documentKind: getStringProperty(result, "document_kind") ?? bestChunk?.document_kind,
+    title: getStringProperty(result, "title") ?? bestChunk?.title,
+    heading:
+      getStringProperty(result, "best_heading") ??
+      getStringProperty(result, "heading_path") ??
+      getStringProperty(result, "heading") ??
+      bestChunk?.heading_path ??
+      bestChunk?.heading,
+    chunkId:
+      getStringProperty(result, "best_chunk_id") ??
+      getStringProperty(result, "chunk_id") ??
+      bestChunk?.chunk_id,
+    lineStart:
+      getNumberProperty(result, "best_start_line") ??
+      getNumberProperty(result, "line_start") ??
+      getNumberProperty(result, "start_line") ??
+      bestChunk?.start_line ??
+      bestChunk?.line_start,
+    lineEnd:
+      getNumberProperty(result, "best_end_line") ??
+      getNumberProperty(result, "line_end") ??
+      getNumberProperty(result, "end_line") ??
+      bestChunk?.end_line ??
+      bestChunk?.line_end,
+    startPage:
+      getNumberProperty(result, "best_start_page") ??
+      getNumberProperty(result, "start_page") ??
+      bestChunk?.start_page,
+    endPage:
+      getNumberProperty(result, "best_end_page") ??
+      getNumberProperty(result, "end_page") ??
+      bestChunk?.end_page,
+    tags: mergeLabels(getLabels(result), getLabels(bestChunk)),
+    ...overrides,
+  };
+}
+
+function getResultSnippet(
+  result: unknown,
+  bestChunk: KbSearchHit | undefined,
+  includeTextFallback: boolean,
+): string | undefined {
+  return (
+    getStringProperty(result, "best_snippet") ??
+    getStringProperty(result, "snippet") ??
+    bestChunk?.best_snippet ??
+    bestChunk?.snippet ??
+    (includeTextFallback
+      ? getStringProperty(result, "text") ?? bestChunk?.text
+      : undefined)
+  );
 }
 
 function formatPreviewLocation(chunk: KbChunkRecord): string {
