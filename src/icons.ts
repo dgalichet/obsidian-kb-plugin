@@ -3,13 +3,20 @@ import { addIcon } from "obsidian";
 export const OBSIDIAN_KB_ICON_ID = "obsidian-kb";
 
 const OBSIDIAN_KB_ICON_SVG = `
-<g fill="none" stroke="currentColor" stroke-width="7.5" stroke-linecap="round" stroke-linejoin="round">
-  <path d="M45 7 17 34l8 48 20 11 20-11 8-48L45 7Z"/>
-  <path d="M17 34h56"/>
-  <path d="M45 7 33 34l12 59"/>
-  <path d="M45 7 57 34 45 93"/>
-  <circle cx="68" cy="66" r="15"/>
-  <path d="m79 77 13 13"/>
+<g transform="scale(4.1666666667)" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/>
+  <path d="M9 13a4.5 4.5 0 0 0 3-4"/>
+  <path d="M6.003 5.125A3 3 0 0 0 6.401 6.5"/>
+  <path d="M3.477 10.896a4 4 0 0 1 .585-.396"/>
+  <path d="M6 18a4 4 0 0 1-1.967-.516"/>
+  <path d="M12 13h4"/>
+  <path d="M12 18h6a2 2 0 0 1 2 2v1"/>
+  <path d="M12 8h8"/>
+  <path d="M16 8V5a2 2 0 0 1 2-2"/>
+  <circle cx="16" cy="13" r=".5"/>
+  <circle cx="18" cy="3" r=".5"/>
+  <circle cx="20" cy="21" r=".5"/>
+  <circle cx="20" cy="8" r=".5"/>
 </g>
 `;
 

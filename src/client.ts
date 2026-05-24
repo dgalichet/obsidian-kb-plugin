@@ -1,6 +1,7 @@
 import { requestUrl } from "obsidian";
 import type {
   KbHealth,
+  KbChunkRecord,
   KbSearchHit,
   KbSearchRequest,
   KbStatus,
@@ -33,6 +34,10 @@ export class ObsidianKbClient {
 
   async search(request: KbSearchRequest): Promise<KbSearchHit[]> {
     return this.postJson<KbSearchHit[]>("/search", request);
+  }
+
+  async showChunk(chunkId: string): Promise<KbChunkRecord> {
+    return this.postJson<KbChunkRecord>("/show", { chunk_id: chunkId });
   }
 
   async relatedByNote(

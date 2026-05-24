@@ -1,7 +1,15 @@
-import { ItemView, Notice, TFile, WorkspaceLeaf } from "obsidian";
+import {
+  HoverPopover,
+  ItemView,
+  MarkdownRenderer,
+  Notice,
+  TFile,
+  WorkspaceLeaf,
+} from "obsidian";
 import { OBSIDIAN_KB_ICON_ID } from "./icons";
 import type ObsidianKbPlugin from "./main";
 import type {
+  KbChunkRecord,
   KbSearchHit,
   KbStatus,
   RelatedNote,
@@ -28,9 +36,14 @@ const INDEX_STAT_KEYS = [
 
 interface ResultCardData {
   path: string;
+  documentKind?: string;
   title?: string;
   heading?: string;
+  chunkId?: string;
   lineStart?: number;
+  lineEnd?: number;
+  startPage?: number;
+  endPage?: number;
   snippet?: string;
   score?: number;
   tags?: string[];
@@ -53,6 +66,9 @@ export class ObsidianKbView extends ItemView {
   private relatedLoadedNotePath: string | null = null;
   private relatedLoadedTop: number | null = null;
   private relatedRequestId = 0;
+  private chunkPreviewRequestId = 0;
+  private chunkPreviewPopover: HoverPopover | null = null;
+  private readonly chunkPreviewCache = new Map<string, Promise<KbChunkRecord>>();
   private serviceState: ServiceState = "unknown";
 
   constructor(
@@ -88,6 +104,7 @@ export class ObsidianKbView extends ItemView {
   }
 
   async onClose(): Promise<void> {
+    this.closeChunkPreview();
     return;
   }
 
@@ -510,12 +527,39 @@ export class ObsidianKbView extends ItemView {
     }
 
     for (const hit of hits) {
+      const bestChunk = hit.chunks?.[0];
       this.renderResultCard(this.searchResultsEl, {
-        path: hit.path ?? hit.note_path ?? "",
+        path: hit.path ?? hit.note_path ?? bestChunk?.path ?? bestChunk?.note_path ?? "",
+        documentKind: hit.document_kind ?? bestChunk?.document_kind,
         title: hit.title,
-        heading: hit.heading_path ?? hit.heading,
-        lineStart: hit.line_start,
-        snippet: hit.snippet ?? hit.text,
+        heading:
+          hit.best_heading ??
+          hit.heading_path ??
+          hit.heading ??
+          bestChunk?.heading_path ??
+          bestChunk?.heading,
+        chunkId: hit.best_chunk_id ?? hit.chunk_id ?? bestChunk?.chunk_id,
+        lineStart:
+          hit.best_start_line ??
+          hit.line_start ??
+          hit.start_line ??
+          bestChunk?.start_line ??
+          bestChunk?.line_start,
+        lineEnd:
+          hit.best_end_line ??
+          hit.line_end ??
+          hit.end_line ??
+          bestChunk?.end_line ??
+          bestChunk?.line_end,
+        startPage:
+          hit.best_start_page ??
+          hit.start_page ??
+          bestChunk?.start_page,
+        endPage:
+          hit.best_end_page ??
+          hit.end_page ??
+          bestChunk?.end_page,
+        snippet: hit.best_snippet ?? hit.snippet ?? bestChunk?.snippet ?? hit.text,
         score: hit.final_score ?? hit.score,
         tags: getLabels(hit),
       });
@@ -533,13 +577,33 @@ export class ObsidianKbView extends ItemView {
       const bestChunk = note.chunks?.[0];
       this.renderResultCard(this.relatedResultsEl, {
         path: note.path ?? note.note_path ?? bestChunk?.path ?? bestChunk?.note_path ?? "",
+        documentKind: note.document_kind ?? bestChunk?.document_kind,
         title: note.title ?? bestChunk?.title,
         heading:
+          note.best_heading ??
           getStringProperty(note, "heading_path") ??
           getStringProperty(note, "heading") ??
           bestChunk?.heading_path ??
           bestChunk?.heading,
-        lineStart: getNumberProperty(note, "line_start") ?? bestChunk?.line_start,
+        chunkId: note.best_chunk_id ?? bestChunk?.chunk_id,
+        lineStart:
+          getNumberProperty(note, "line_start") ??
+          getNumberProperty(note, "start_line") ??
+          bestChunk?.start_line ??
+          bestChunk?.line_start,
+        lineEnd:
+          getNumberProperty(note, "line_end") ??
+          getNumberProperty(note, "end_line") ??
+          bestChunk?.end_line ??
+          bestChunk?.line_end,
+        startPage:
+          note.start_page ??
+          getNumberProperty(note, "start_page") ??
+          bestChunk?.start_page,
+        endPage:
+          note.end_page ??
+          getNumberProperty(note, "end_page") ??
+          bestChunk?.end_page,
         score: note.score ?? note.best_score,
         tags: mergeLabels(getLabels(note), getLabels(bestChunk)),
       });
@@ -563,6 +627,7 @@ export class ObsidianKbView extends ItemView {
       event.preventDefault();
       void this.openResult(result);
     });
+    this.registerResultPreview(title, result);
 
     if (typeof result.score === "number") {
       titleRow.createSpan({
@@ -589,6 +654,7 @@ export class ObsidianKbView extends ItemView {
       event.preventDefault();
       void this.openResult(result);
     });
+    this.registerResultPreview(location, result);
 
     if (result.snippet) {
       card.createDiv({
@@ -612,9 +678,15 @@ export class ObsidianKbView extends ItemView {
 
     const file = this.app.vault.getAbstractFileByPath(result.path);
     const openState = getLineOpenState(result.lineStart);
+    const pdfPageLink = getPdfPageLinkText(result.path, result.startPage);
     const headingLink = result.heading
       ? `${result.path}#${lastHeading(result.heading)}`
       : null;
+
+    if (pdfPageLink) {
+      await this.app.workspace.openLinkText(pdfPageLink, "", false);
+      return;
+    }
 
     if (file instanceof TFile && openState) {
       await this.app.workspace.getLeaf(false).openFile(file, openState);
@@ -632,6 +704,151 @@ export class ObsidianKbView extends ItemView {
     }
 
     await this.app.workspace.openLinkText(result.path, "", false, openState);
+  }
+
+  private registerResultPreview(linkEl: HTMLElement, result: ResultCardData): void {
+    linkEl.addEventListener("mouseenter", (event) => {
+      if (isPdfResult(result) && !result.startPage && result.chunkId) {
+        void this.openChunkPreview(linkEl, result, event);
+        return;
+      }
+      this.closeChunkPreview();
+      this.triggerNativePreview(linkEl, result, event);
+    });
+  }
+
+  private async openChunkPreview(
+    linkEl: HTMLElement,
+    result: ResultCardData,
+    event: MouseEvent,
+  ): Promise<void> {
+    if (!result.chunkId) {
+      this.triggerNativePreview(linkEl, result, event);
+      return;
+    }
+
+    this.disposeChunkPreview();
+    const requestId = ++this.chunkPreviewRequestId;
+    const popover = new HoverPopover(this.leaf, linkEl, 250);
+    this.chunkPreviewPopover = popover;
+    const contentEl = popover.hoverEl.createDiv({ cls: "obsidian-kb-preview" });
+    contentEl.createDiv({
+      cls: "obsidian-kb-preview-loading",
+      text: "Loading preview...",
+    });
+
+    try {
+      const chunk = await this.loadPreviewChunk(result.chunkId);
+      if (
+        requestId !== this.chunkPreviewRequestId ||
+        this.chunkPreviewPopover !== popover
+      ) {
+        return;
+      }
+      const pageLink = getPdfPageLinkText(chunk.note_path, chunk.start_page);
+      if (pageLink) {
+        this.disposeChunkPreview();
+        this.triggerNativePreview(
+          linkEl,
+          {
+            ...result,
+            path: chunk.note_path,
+            documentKind: chunk.document_kind,
+            startPage: chunk.start_page,
+            endPage: chunk.end_page,
+          },
+          event,
+        );
+        return;
+      }
+      await this.renderChunkPreview(popover, chunk);
+    } catch {
+      if (this.chunkPreviewPopover === popover) {
+        this.disposeChunkPreview();
+      }
+      this.triggerNativePreview(linkEl, result, event);
+    }
+  }
+
+  private async renderChunkPreview(
+    popover: HoverPopover,
+    chunk: KbChunkRecord,
+  ): Promise<void> {
+    popover.hoverEl.empty();
+    const container = popover.hoverEl.createDiv({ cls: "obsidian-kb-preview" });
+
+    const header = container.createDiv({ cls: "obsidian-kb-preview-header" });
+    header.createDiv({
+      cls: "obsidian-kb-preview-title",
+      text: chunk.title || basename(chunk.note_path),
+    });
+
+    const location = formatPreviewLocation(chunk);
+    if (location) {
+      header.createDiv({ cls: "obsidian-kb-preview-location", text: location });
+    }
+
+    const body = container.createDiv({
+      cls: "obsidian-kb-preview-body markdown-rendered",
+    });
+    if (chunk.text.trim()) {
+      await MarkdownRenderer.render(
+        this.app,
+        chunk.text,
+        body,
+        chunk.note_path,
+        popover,
+      );
+    } else {
+      body.createDiv({ cls: "obsidian-kb-empty", text: "No chunk text." });
+    }
+  }
+
+  private loadPreviewChunk(chunkId: string): Promise<KbChunkRecord> {
+    const cached = this.chunkPreviewCache.get(chunkId);
+    if (cached) {
+      return cached;
+    }
+
+    const request = this.plugin.client.showChunk(chunkId).catch((error) => {
+      this.chunkPreviewCache.delete(chunkId);
+      throw error;
+    });
+    this.chunkPreviewCache.set(chunkId, request);
+    return request;
+  }
+
+  private disposeChunkPreview(): void {
+    if (!this.chunkPreviewPopover) {
+      return;
+    }
+    this.chunkPreviewPopover.unload();
+    this.chunkPreviewPopover = null;
+  }
+
+  private closeChunkPreview(): void {
+    this.chunkPreviewRequestId += 1;
+    this.disposeChunkPreview();
+  }
+
+  private triggerNativePreview(
+    linkEl: HTMLElement,
+    result: ResultCardData,
+    event: MouseEvent,
+  ): void {
+    const linktext = getPreviewLinkText(result);
+    if (!linktext) {
+      return;
+    }
+
+    this.app.workspace.trigger("hover-link", {
+      event,
+      source: "okb",
+      hoverParent: this.leaf,
+      targetEl: linkEl,
+      linktext,
+      sourcePath: this.app.workspace.getActiveFile()?.path ?? "",
+    });
   }
 
   private renderEmpty(container: HTMLElement, message: string): void {
@@ -660,6 +877,21 @@ function basename(path: string): string {
 
 function normalizeWhitespace(value: string): string {
   return value.replace(/\s+/g, " ").trim();
+}
+
+function formatPreviewLocation(chunk: KbChunkRecord): string {
+  const parts = [chunk.note_path];
+  if (chunk.heading_path) {
+    parts.push(chunk.heading_path);
+  }
+  if (typeof chunk.start_page === "number") {
+    const endPage = typeof chunk.end_page === "number" ? chunk.end_page : chunk.start_page;
+    parts.push(endPage === chunk.start_page ? `Page ${chunk.start_page}` : `Pages ${chunk.start_page}-${endPage}`);
+  } else if (typeof chunk.start_line === "number") {
+    const endLine = typeof chunk.end_line === "number" ? chunk.end_line : chunk.start_line;
+    parts.push(endLine === chunk.start_line ? `Line ${chunk.start_line}` : `Lines ${chunk.start_line}-${endLine}`);
+  }
+  return parts.filter(Boolean).join(" · ");
 }
 
 function formatLoaded(value: boolean | undefined): string {
@@ -737,4 +969,32 @@ function lastHeading(heading: string): string {
     .map((part) => part.trim())
     .filter(Boolean)
     .pop() ?? heading;
+}
+
+function getPreviewLinkText(result: ResultCardData): string | null {
+  if (!result.path) {
+    return null;
+  }
+  const pdfPageLink = getPdfPageLinkText(result.path, result.startPage);
+  if (pdfPageLink) {
+    return pdfPageLink;
+  }
+  if (!result.heading) {
+    return result.path;
+  }
+  return `${result.path}#${lastHeading(result.heading)}`;
+}
+
+function isPdfResult(result: ResultCardData): boolean {
+  return result.documentKind === "pdf" || result.path.toLowerCase().endsWith(".pdf");
+}
+
+function getPdfPageLinkText(path: string, page: number | undefined): string | null {
+  if (!path.toLowerCase().endsWith(".pdf")) {
+    return null;
+  }
+  if (typeof page !== "number" || !Number.isFinite(page) || page < 1) {
+    return null;
+  }
+  return `${path}#page=${Math.floor(page)}`;
 }

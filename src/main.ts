@@ -35,6 +35,10 @@ export default class ObsidianKbPlugin extends Plugin {
       VIEW_TYPE_OBSIDIAN_KB,
       (leaf: WorkspaceLeaf) => new ObsidianKbView(leaf, this),
     );
+    this.registerHoverLinkSource("okb", {
+      display: "Obsidian Knowledge Base",
+      defaultMod: false,
+    });
 
     this.addRibbonIcon(OBSIDIAN_KB_ICON_ID, "Open Obsidian KB", () => {
       void this.activateView();

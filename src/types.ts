@@ -78,11 +78,23 @@ export interface KbSearchRequest {
 export interface KbSearchHit {
   path?: string;
   note_path?: string;
+  document_kind?: string;
   title?: string;
   heading_path?: string;
   heading?: string;
+  best_chunk_id?: string;
+  best_heading?: string;
+  best_start_line?: number;
+  best_end_line?: number;
+  best_start_page?: number;
+  best_end_page?: number;
+  best_snippet?: string;
   line_start?: number;
   line_end?: number;
+  start_line?: number;
+  end_line?: number;
+  start_page?: number;
+  end_page?: number;
   snippet?: string;
   text?: string;
   chunk_id?: string;
@@ -90,15 +102,21 @@ export interface KbSearchHit {
   score?: number;
   rank?: number;
   tags?: string[];
+  chunks?: KbSearchHit[];
   [key: string]: unknown;
 }
 
 export interface RelatedNote {
   path?: string;
   note_path?: string;
+  document_kind?: string;
   title?: string;
   score?: number;
   best_score?: number;
+  best_chunk_id?: string;
+  best_heading?: string;
+  start_page?: number;
+  end_page?: number;
   chunks?: KbSearchHit[];
   [key: string]: unknown;
 }
@@ -111,6 +129,21 @@ export interface RelatedReport {
     [key: string]: unknown;
   };
   notes?: RelatedNote[];
+  [key: string]: unknown;
+}
+
+export interface KbChunkRecord {
+  chunk_id: string;
+  note_path: string;
+  document_kind?: string;
+  title?: string;
+  heading_path?: string;
+  text: string;
+  start_line?: number;
+  end_line?: number;
+  start_page?: number;
+  end_page?: number;
+  tags?: string[];
   [key: string]: unknown;
 }
 
