@@ -1,4 +1,5 @@
 import { App, Notice, PluginSettingTab, Setting } from "obsidian";
+import { normalizeExcludeHeadings } from "./kb-config";
 import type ObsidianKbPlugin from "./main";
 import type { SearchMode } from "./types";
 
@@ -178,6 +179,7 @@ export class ObsidianKbSettingTab extends PluginSettingTab {
       .setName("Default result count")
       .addText((text) =>
         text
+          .setPlaceholder("10")
           .setValue(String(this.plugin.settings.defaultTop))
           .onChange(async (value) => {
             const top = Number(value);
@@ -187,6 +189,42 @@ export class ObsidianKbSettingTab extends PluginSettingTab {
             }
           }),
       );
+
+    new Setting(containerEl)
+      .setName("Lexical candidate count")
+      .setDesc("How many BM25 candidates obsidian-kb gathers before final ranking.")
+      .addText((text) => {
+        text.inputEl.type = "number";
+        text.inputEl.min = "1";
+        text
+          .setPlaceholder("80")
+          .setValue(String(this.plugin.settings.searchBm25Candidates))
+          .onChange(async (value) => {
+            const candidates = Number(value);
+            if (Number.isInteger(candidates) && candidates >= 1) {
+              this.plugin.settings.searchBm25Candidates = candidates;
+              await this.plugin.saveSettings();
+            }
+          });
+      });
+
+    new Setting(containerEl)
+      .setName("Semantic candidate count")
+      .setDesc("How many vector candidates obsidian-kb gathers before final ranking.")
+      .addText((text) => {
+        text.inputEl.type = "number";
+        text.inputEl.min = "1";
+        text
+          .setPlaceholder("80")
+          .setValue(String(this.plugin.settings.searchVectorCandidates))
+          .onChange(async (value) => {
+            const candidates = Number(value);
+            if (Number.isInteger(candidates) && candidates >= 1) {
+              this.plugin.settings.searchVectorCandidates = candidates;
+              await this.plugin.saveSettings();
+            }
+          });
+      });
 
     new Setting(containerEl)
       .setName("Include chunk text")
@@ -205,6 +243,119 @@ export class ObsidianKbSettingTab extends PluginSettingTab {
           this.plugin.settings.expandGraph = value;
           await this.plugin.saveSettings();
         }),
+      );
+
+    new Setting(containerEl)
+      .setName("Graph expansion weight")
+      .setDesc("Boost applied to linked notes when graph expansion is enabled.")
+      .addText((text) => {
+        text.inputEl.type = "number";
+        text.inputEl.min = "0";
+        text.inputEl.step = "0.05";
+        text
+          .setPlaceholder("0.25")
+          .setValue(String(this.plugin.settings.searchGraphWeight))
+          .onChange(async (value) => {
+            const weight = Number(value);
+            if (Number.isFinite(weight) && weight >= 0) {
+              this.plugin.settings.searchGraphWeight = weight;
+              await this.plugin.saveSettings();
+            }
+          });
+      });
+
+    new Setting(containerEl)
+      .setName("Graph expansion depth")
+      .setDesc("Maximum link distance used for graph expansion.")
+      .addText((text) => {
+        text.inputEl.type = "number";
+        text.inputEl.min = "0";
+        text.inputEl.step = "1";
+        text
+          .setPlaceholder("1")
+          .setValue(String(this.plugin.settings.searchGraphDepth))
+          .onChange(async (value) => {
+            const depth = Number(value);
+            if (Number.isInteger(depth) && depth >= 0) {
+              this.plugin.settings.searchGraphDepth = depth;
+              await this.plugin.saveSettings();
+            }
+          });
+      });
+
+    new Setting(containerEl)
+      .setName("Graph max neighbors")
+      .setDesc("Maximum linked notes considered during graph expansion.")
+      .addText((text) => {
+        text.inputEl.type = "number";
+        text.inputEl.min = "1";
+        text.inputEl.step = "1";
+        text
+          .setPlaceholder("20")
+          .setValue(String(this.plugin.settings.searchGraphMaxNeighbors))
+          .onChange(async (value) => {
+            const neighbors = Number(value);
+            if (Number.isInteger(neighbors) && neighbors >= 1) {
+              this.plugin.settings.searchGraphMaxNeighbors = neighbors;
+              await this.plugin.saveSettings();
+            }
+          });
+      });
+
+    new Setting(containerEl).setName("Indexing").setHeading();
+
+    new Setting(containerEl)
+      .setName("Exclude headings from index")
+      .setDesc("One heading per line. Matching sections are removed from chunks, BM25, embeddings, and related-note scoring.")
+      .addTextArea((text) => {
+        text.inputEl.rows = 4;
+        text
+          .setPlaceholder("Relations\nSources")
+          .setValue(this.plugin.settings.indexExcludeHeadings.join("\n"))
+          .onChange(async (value) => {
+            this.plugin.settings.indexExcludeHeadings = normalizeExcludeHeadings(value);
+            await this.plugin.saveSettings();
+          });
+      });
+
+    new Setting(containerEl)
+      .setName("Index PDF attachments")
+      .setDesc("Include PDF files in obsidian-kb indexing. PDF results link back to page anchors when available.")
+      .addToggle((toggle) =>
+        toggle
+          .setValue(this.plugin.settings.indexPdfEnabled)
+          .onChange(async (value) => {
+            this.plugin.settings.indexPdfEnabled = value;
+            await this.plugin.saveSettings();
+          }),
+      );
+
+    new Setting(containerEl)
+      .setName("Maximum PDF size")
+      .setDesc("Maximum PDF file size to index, in MB.")
+      .addText((text) =>
+        text
+          .setPlaceholder("50")
+          .setValue(String(this.plugin.settings.indexPdfMaxFileSizeMb))
+          .onChange(async (value) => {
+            const maxFileSizeMb = Number(value);
+            if (Number.isInteger(maxFileSizeMb) && maxFileSizeMb > 0) {
+              this.plugin.settings.indexPdfMaxFileSizeMb = maxFileSizeMb;
+              await this.plugin.saveSettings();
+            }
+          }),
+      );
+
+    new Setting(containerEl)
+      .setName("Apply search and indexing config")
+      .setDesc("Writes the obsidian-kb config file, restarts the plugin-managed service when needed, then refreshes the index.")
+      .addButton((button) =>
+        button
+          .setButtonText("Apply config")
+          .setCta()
+          .onClick(async () => {
+            await this.plugin.applyKbConfigDraft();
+          }),
       );
   }
 }

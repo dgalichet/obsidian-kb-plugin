@@ -2,7 +2,7 @@ import type { App } from "obsidian";
 import { FileSystemAdapter, Notice, Platform } from "obsidian";
 import { spawn, type ChildProcessWithoutNullStreams } from "child_process";
 import { accessSync, constants } from "fs";
-import { delimiter, join } from "path";
+import { delimiter, isAbsolute, join } from "path";
 import { homedir } from "os";
 import type { ObsidianKbSettings } from "./types";
 
@@ -48,6 +48,18 @@ export class ObsidianKbProcessManager {
       getBasePath?: () => string;
     };
     return unsafeAdapter.getBasePath?.() ?? unsafeAdapter.basePath ?? "";
+  }
+
+  resolveConfigPath(): string {
+    const settings = this.settingsProvider();
+    const configuredPath = settings.configPath.trim();
+    const vaultPath = this.resolveVaultPath();
+    if (!configuredPath) {
+      return join(vaultPath, ".obsidian-kb.toml");
+    }
+
+    const expanded = expandHome(configuredPath);
+    return isAbsolute(expanded) ? expanded : join(vaultPath, expanded);
   }
 
   async startServe(): Promise<void> {

@@ -4,6 +4,11 @@ import {
   OBSIDIAN_KB_ICON_ID,
   registerObsidianKbIcon,
 } from "./icons";
+import {
+  readKbConfigDraft,
+  writeKbConfigDraft,
+  type KbConfigDraft,
+} from "./kb-config";
 import { ObsidianKbProcessManager } from "./process";
 import { ObsidianKbSettingTab } from "./settings";
 import {
@@ -28,6 +33,7 @@ export default class ObsidianKbPlugin extends Plugin {
     registerObsidianKbIcon();
     this.recreateClient();
     this.processManager = new ObsidianKbProcessManager(this.app, () => this.settings);
+    await this.loadKbConfigDraft();
     window.addEventListener("beforeunload", this.stopOnWindowUnload);
     window.addEventListener("unload", this.stopOnWindowUnload);
 
@@ -135,6 +141,72 @@ export default class ObsidianKbPlugin extends Plugin {
     await this.saveData(this.settings);
   }
 
+  async loadKbConfigDraft(): Promise<void> {
+    try {
+      const draft = await readKbConfigDraft(this.processManager.resolveConfigPath());
+      if (!draft) {
+        return;
+      }
+
+      this.settings.indexExcludeHeadings = draft.excludeHeadings;
+      this.settings.indexPdfEnabled = draft.pdfEnabled;
+      this.settings.indexPdfMaxFileSizeMb = draft.pdfMaxFileSizeMb;
+      this.settings.defaultMode = draft.searchDefaultMode;
+      this.settings.defaultTop = draft.searchFinalTopK;
+      this.settings.searchBm25Candidates = draft.searchBm25Candidates;
+      this.settings.searchVectorCandidates = draft.searchVectorCandidates;
+      this.settings.searchGraphWeight = draft.searchGraphWeight;
+      this.settings.searchGraphDepth = draft.searchGraphDepth;
+      this.settings.searchGraphMaxNeighbors = draft.searchGraphMaxNeighbors;
+      await this.saveSettings();
+    } catch (error) {
+      console.error("Failed to load obsidian-kb config", error);
+    }
+  }
+
+  async applyKbConfigDraft(): Promise<void> {
+    const configPath = this.processManager.resolveConfigPath();
+    const draft: KbConfigDraft = {
+      excludeHeadings: this.settings.indexExcludeHeadings,
+      pdfEnabled: this.settings.indexPdfEnabled,
+      pdfMaxFileSizeMb: this.settings.indexPdfMaxFileSizeMb,
+      searchDefaultMode: this.settings.defaultMode,
+      searchFinalTopK: this.settings.defaultTop,
+      searchBm25Candidates: this.settings.searchBm25Candidates,
+      searchVectorCandidates: this.settings.searchVectorCandidates,
+      searchGraphWeight: this.settings.searchGraphWeight,
+      searchGraphDepth: this.settings.searchGraphDepth,
+      searchGraphMaxNeighbors: this.settings.searchGraphMaxNeighbors,
+    };
+
+    try {
+      await this.ensureConfigFile();
+      const hadManagedService = this.processManager.isManagedProcessRunning;
+      const hadExternalService = !hadManagedService && await this.isServiceReachable();
+
+      await writeKbConfigDraft(configPath, draft);
+
+      if (hadManagedService) {
+        await this.stopManagedService();
+        await this.ensureService();
+        await this.client.refreshIndex();
+        new Notice("obsidian-kb config applied, service restarted, and index refreshed");
+        return;
+      }
+
+      if (hadExternalService) {
+        new Notice("obsidian-kb config saved. Restart the external service, then refresh the index.");
+        return;
+      }
+
+      await this.ensureService();
+      await this.client.refreshIndex();
+      new Notice("obsidian-kb config applied and index refreshed");
+    } catch (error) {
+      new Notice(error instanceof Error ? error.message : String(error));
+    }
+  }
+
   recreateClient(): void {
     this.client = new ObsidianKbClient(
       `http://${this.settings.host}:${this.settings.port}`,
@@ -187,6 +259,23 @@ export default class ObsidianKbPlugin extends Plugin {
       // The process may not have finished starting or may already be exiting.
     }
     await this.processManager.stopServe();
+  }
+
+  private async ensureConfigFile(): Promise<void> {
+    const draft = await readKbConfigDraft(this.processManager.resolveConfigPath());
+    if (draft) {
+      return;
+    }
+    await this.processManager.runInit();
+  }
+
+  private async isServiceReachable(): Promise<boolean> {
+    try {
+      await this.client.health();
+      return true;
+    } catch {
+      return false;
+    }
   }
 }
 

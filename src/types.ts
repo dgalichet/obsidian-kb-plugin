@@ -15,6 +15,14 @@ export interface ObsidianKbSettings {
   includeText: boolean;
   maxChars: number;
   expandGraph: boolean;
+  indexExcludeHeadings: string[];
+  indexPdfEnabled: boolean;
+  indexPdfMaxFileSizeMb: number;
+  searchBm25Candidates: number;
+  searchVectorCandidates: number;
+  searchGraphWeight: number;
+  searchGraphDepth: number;
+  searchGraphMaxNeighbors: number;
 }
 
 export const DEFAULT_SETTINGS: ObsidianKbSettings = {
@@ -32,6 +40,14 @@ export const DEFAULT_SETTINGS: ObsidianKbSettings = {
   includeText: false,
   maxChars: 1200,
   expandGraph: true,
+  indexExcludeHeadings: [],
+  indexPdfEnabled: false,
+  indexPdfMaxFileSizeMb: 50,
+  searchBm25Candidates: 80,
+  searchVectorCandidates: 80,
+  searchGraphWeight: 0.25,
+  searchGraphDepth: 1,
+  searchGraphMaxNeighbors: 20,
 };
 
 export interface KbHealth {

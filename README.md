@@ -119,8 +119,10 @@ It only installs the Obsidian plugin assets; you still need to install the
 5. Optionally set a custom `Index directory` path passed to
    `obsidian-kb init --index-dir`.
 6. Click **Initialize** to run `obsidian-kb init --vault <vault>`.
-7. Start the service from the same settings tab, or leave auto-start enabled.
-8. Open the OKB side panel and refresh or rebuild the index from the Index tab.
+7. Optionally configure search tuning, PDF indexing, and excluded headings from
+   the same settings tab, then click **Apply config**.
+8. Start the service from the same settings tab, or leave auto-start enabled.
+9. Open the OKB side panel and refresh or rebuild the index from the Index tab.
 
 The default `obsidian-kb` config file is `.obsidian-kb.toml`, and the default
 sidecar index directory is `<vault>/.obsidian-kb`.
