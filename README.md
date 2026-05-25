@@ -196,14 +196,16 @@ The Obsidian plugin id is `okb`. For a GitHub release, attach:
 - `main.js`
 - `styles.css`
 
-The release tag must match `manifest.json`'s `version` exactly.
+The release tag must match `manifest.json`'s `version` exactly. For example,
+use `0.1.0`, not `v0.1.0`, because Obsidian installs assets from the GitHub
+release tagged with the manifest version.
 
 The release contains only the Obsidian plugin assets. Users must install
 `obsidian-kb` separately before OKB can start or connect to the local service.
 
 Releases are published by GitHub Actions when pushing a version tag in the
-`vX.Y.Z` format. The tag must point to a commit reachable from `main`, and the
-`X.Y.Z` part must match `package.json` and `manifest.json`.
+`X.Y.Z` format. The tag must point to a commit reachable from `main`, and the
+version must match `package.json` and `manifest.json`.
 
 ```bash
 npm version patch

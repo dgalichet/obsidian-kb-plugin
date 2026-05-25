@@ -73,9 +73,9 @@ if (versions[manifest.version] !== manifest.minAppVersion) {
 if (releaseMode) {
   const tag = process.env.GITHUB_REF_NAME ?? process.env.RELEASE_TAG ?? "";
 
-  if (!/^v\d+\.\d+\.\d+$/.test(tag)) {
-    fail(`release tag must use vX.Y.Z format, got ${tag || "<empty>"}`);
-  } else if (tag.slice(1) !== manifest.version) {
+  if (!semverPattern.test(tag)) {
+    fail(`release tag must use X.Y.Z format without a v prefix, got ${tag || "<empty>"}`);
+  } else if (tag !== manifest.version) {
     fail(`release tag ${tag} must match manifest/package version ${manifest.version}`);
   }
 }
