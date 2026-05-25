@@ -147,7 +147,7 @@ It only installs the Obsidian plugin assets; you still need to install the
    ```
 
 4. Choose the latest version when BRAT asks which version to install.
-5. Enable **Obsidian Knowledge Base** from Obsidian's community plugins list.
+5. Enable **Vault Knowledge Base** from Obsidian's community plugins list.
 
 ## First-Time Setup
 

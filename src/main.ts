@@ -42,11 +42,11 @@ export default class ObsidianKbPlugin extends Plugin {
       (leaf: WorkspaceLeaf) => new ObsidianKbView(leaf, this),
     );
     this.registerHoverLinkSource("okb", {
-      display: "Obsidian Knowledge Base",
+      display: "Vault Knowledge Base",
       defaultMod: false,
     });
 
-    this.addRibbonIcon(OBSIDIAN_KB_ICON_ID, "Open Obsidian KB", () => {
+    this.addRibbonIcon(OBSIDIAN_KB_ICON_ID, "Open Vault KB", () => {
       void this.activateView();
     });
 
