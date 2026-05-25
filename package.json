@@ -1,6 +1,6 @@
 {
   "name": "obsidian-kb-plugin",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Obsidian panel for local obsidian-kb semantic search.",
   "main": "main.js",
   "scripts": {
