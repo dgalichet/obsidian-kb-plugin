@@ -1,6 +1,6 @@
 {
   "name": "obsidian-kb-plugin",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Local vault panel for semantic search and related notes.",
   "main": "main.js",
   "scripts": {
