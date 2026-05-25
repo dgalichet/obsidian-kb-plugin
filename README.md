@@ -1,4 +1,4 @@
-# Obsidian Knowledge Base
+# Vault Knowledge Base
 
 AI-ready lexical, semantic, and graph search for your Obsidian vault.
 
@@ -8,7 +8,7 @@ AI-ready lexical, semantic, and graph search for your Obsidian vault.
   <img alt="obsidian-kb logo" src="assets/obsidian-kb-logo-light.png" width="720">
 </picture>
 
-Obsidian Knowledge Base, or OKB, connects your Obsidian vault to LLM agents
+Vault Knowledge Base, or OKB, connects your Obsidian vault to LLM agents
 such as Codex, Claude Code, OpenCode, or any MCP-compatible assistant.
 
 It wraps the local `obsidian-kb` service inside Obsidian, giving you a side
@@ -25,7 +25,7 @@ wrapper around the separate `obsidian-kb` CLI, which must be installed on the
 same machine. On desktop, OKB starts `obsidian-kb serve` as a local external
 process and talks to it over localhost HTTP.
 
-## Why Obsidian Knowledge Base?
+## Why Vault Knowledge Base?
 
 Obsidian is a strong foundation for a personal or team knowledge base: markdown
 files, local ownership, backlinks, graph navigation, and Git-friendly storage.
@@ -34,7 +34,7 @@ LLM agents need more than files. They need a reliable way to search the vault,
 follow relationships, inspect relevant notes, and keep context grounded in the
 actual knowledge base.
 
-Obsidian Knowledge Base provides that bridge:
+Vault Knowledge Base provides that bridge:
 
 - Inside Obsidian, it gives you search, related notes, and index controls.
 - Outside Obsidian, it exposes the vault to agents through MCP.
@@ -48,7 +48,7 @@ workspace and agents help with search, linking, summarization, and maintenance.
 
 ## Use Cases
 
-Use Obsidian Knowledge Base when you want to:
+Use Vault Knowledge Base when you want to:
 
 - Search an Obsidian vault from Codex, Claude Code, or another LLM agent.
 - Add MCP access to a local markdown knowledge base.

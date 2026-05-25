@@ -1,4 +1,4 @@
-import builtins from "builtin-modules";
+import { builtinModules } from "node:module";
 import esbuild from "esbuild";
 
 const prod = process.argv[2] === "production";
@@ -17,8 +17,8 @@ const context = await esbuild.context({
     "electron",
     "@codemirror/*",
     "@lezer/*",
-    ...builtins,
-    ...builtins.map((module) => `node:${module}`),
+    ...builtinModules,
+    ...builtinModules.map((module) => `node:${module}`),
   ],
   format: "cjs",
   target: "es2020",

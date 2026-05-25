@@ -1,7 +1,7 @@
 {
   "name": "obsidian-kb-plugin",
   "version": "0.2.0",
-  "description": "Obsidian panel for local obsidian-kb semantic search.",
+  "description": "Local vault panel for semantic search and related notes.",
   "main": "main.js",
   "scripts": {
     "dev": "node esbuild.config.mjs",
@@ -22,7 +22,6 @@
   "license": "MIT OR Apache-2.0",
   "devDependencies": {
     "@types/node": "^20.17.10",
-    "builtin-modules": "^3.3.0",
     "esbuild": "^0.24.2",
     "obsidian": "^1.7.2",
     "typescript": "^5.7.2"

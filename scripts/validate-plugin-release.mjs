@@ -14,6 +14,15 @@ function readJson(path) {
   }
 }
 
+function readText(path) {
+  try {
+    return readFileSync(path, "utf8");
+  } catch (error) {
+    errors.push(`${path} could not be read: ${error.message}`);
+    return "";
+  }
+}
+
 function fail(message) {
   errors.push(message);
 }
@@ -26,6 +35,8 @@ const packageJson = readJson("package.json");
 const packageLock = readJson("package-lock.json");
 const manifest = readJson("manifest.json");
 const versions = readJson("versions.json");
+const readme = readText("README.md");
+const license = readText("LICENSE");
 
 const semverPattern = /^\d+\.\d+\.\d+$/;
 
@@ -62,6 +73,23 @@ for (const field of ["id", "name", "version", "minAppVersion", "description", "a
 
 if (manifest.isDesktopOnly !== true) {
   fail("manifest.json must set isDesktopOnly to true because OKB launches obsidian-kb as a local process");
+}
+
+if (/\bobsidian\b/i.test(manifest.description ?? "")) {
+  fail('manifest.json description must not include the word "Obsidian"');
+}
+
+const readmeTitle = readme.match(/^#\s+(.+)$/m)?.[1]?.trim();
+if (readmeTitle !== manifest.name) {
+  fail(`README title (${readmeTitle || "<missing>"}) must match manifest.json name (${manifest.name})`);
+}
+
+if (packageJson.devDependencies?.["builtin-modules"]) {
+  fail('package.json must not depend on deprecated "builtin-modules"; use node:module builtinModules instead');
+}
+
+if (!license.startsWith("MIT License\n")) {
+  fail("LICENSE must start with the standard MIT License text for repository license detection");
 }
 
 if (versions[manifest.version] !== manifest.minAppVersion) {
