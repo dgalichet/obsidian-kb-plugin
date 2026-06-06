@@ -8,7 +8,7 @@ import type {
   RelatedReport,
 } from "./types";
 
-interface JsonRpcResponse<T> {
+interface JsonRpcResponse {
   result?: {
     content?: Array<{
       type?: string;
@@ -71,7 +71,7 @@ export class ObsidianKbClient {
     name: string,
     argumentsValue: Record<string, unknown>,
   ): Promise<T> {
-    const response = await this.postJson<JsonRpcResponse<T>>("/mcp", {
+    const response = await this.postJson<JsonRpcResponse>("/mcp", {
       jsonrpc: "2.0",
       id: Date.now(),
       method: "tools/call",

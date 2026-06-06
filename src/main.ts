@@ -126,15 +126,19 @@ export default class ObsidianKbPlugin extends Plugin {
     }
   }
 
-  async onunload(): Promise<void> {
+  onunload(): void {
     window.removeEventListener("beforeunload", this.stopOnWindowUnload);
     window.removeEventListener("unload", this.stopOnWindowUnload);
-    this.app.workspace.detachLeavesOfType(VIEW_TYPE_OBSIDIAN_KB);
-    await this.stopManagedService();
+    void this.stopManagedService();
   }
 
   async loadSettings(): Promise<void> {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    const savedData: unknown = await this.loadData();
+    const savedSettings =
+      savedData && typeof savedData === "object"
+        ? savedData as Partial<ObsidianKbSettings>
+        : {};
+    this.settings = { ...DEFAULT_SETTINGS, ...savedSettings };
   }
 
   async saveSettings(): Promise<void> {
@@ -227,7 +231,7 @@ export default class ObsidianKbPlugin extends Plugin {
         active: true,
       });
     }
-    this.app.workspace.revealLeaf(leaf);
+    this.app.workspace.setActiveLeaf(leaf, { focus: true });
     return leaf.view instanceof ObsidianKbView ? leaf.view : null;
   }
 

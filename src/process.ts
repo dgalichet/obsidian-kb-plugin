@@ -288,7 +288,7 @@ function processStartErrorMessage(error: Error, configuredPath: string): string 
 function terminateChild(child: ChildProcessWithoutNullStreams): Promise<void> {
   return new Promise((resolve) => {
     let settled = false;
-    let timeout: ReturnType<typeof setTimeout> | null = null;
+    let timeout: number | null = null;
 
     const finish = () => {
       if (settled) {
@@ -296,7 +296,7 @@ function terminateChild(child: ChildProcessWithoutNullStreams): Promise<void> {
       }
       settled = true;
       if (timeout) {
-        clearTimeout(timeout);
+        window.clearTimeout(timeout);
       }
       resolve();
     };
@@ -309,7 +309,7 @@ function terminateChild(child: ChildProcessWithoutNullStreams): Promise<void> {
       return;
     }
 
-    timeout = setTimeout(() => {
+    timeout = window.setTimeout(() => {
       try {
         child.kill("SIGKILL");
       } catch {
