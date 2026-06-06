@@ -46,7 +46,7 @@ export default class ObsidianKbPlugin extends Plugin {
       defaultMod: false,
     });
 
-    this.addRibbonIcon(OBSIDIAN_KB_ICON_ID, "Open Vault KB", () => {
+    this.addRibbonIcon(OBSIDIAN_KB_ICON_ID, "Open Vault Knowledge Base", () => {
       void this.activateView();
     });
 
