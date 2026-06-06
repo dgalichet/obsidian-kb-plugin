@@ -1,7 +1,7 @@
 {
   "name": "obsidian-kb-plugin",
   "version": "0.2.1",
-  "description": "Local vault panel for semantic search and related notes.",
+  "description": "Agent-ready local search and MCP access for Obsidian vaults.",
   "main": "main.js",
   "scripts": {
     "dev": "node esbuild.config.mjs",

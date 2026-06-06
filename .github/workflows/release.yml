@@ -6,7 +6,9 @@ on:
       - "*.*.*"
 
 permissions:
+  attestations: write
   contents: write
+  id-token: write
 
 jobs:
   release:
@@ -44,6 +46,14 @@ jobs:
 
       - name: Validate release assets
         run: npm run validate:assets
+
+      - name: Generate artifact attestation
+        uses: actions/attest@v4
+        with:
+          subject-path: |
+            main.js
+            manifest.json
+            styles.css
 
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2

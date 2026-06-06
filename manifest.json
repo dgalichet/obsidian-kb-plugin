@@ -3,7 +3,7 @@
   "name": "Vault Knowledge Base",
   "version": "0.2.1",
   "minAppVersion": "1.5.0",
-  "description": "Local semantic search and related notes for your vault.",
+  "description": "Agent-ready local search and MCP access for your vault.",
   "author": "dgalichet",
   "isDesktopOnly": true
 }
