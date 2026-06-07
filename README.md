@@ -1,6 +1,7 @@
 # Vault Knowledge Base
 
-Agent-ready local retrieval for your Obsidian vault.
+Local semantic search, related notes, and MCP access for AI agents, private to
+your vault.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/obsidian-kb-logo.png">
@@ -8,9 +9,11 @@ Agent-ready local retrieval for your Obsidian vault.
   <img alt="obsidian-kb logo" src="assets/obsidian-kb-logo-light.png" width="720">
 </picture>
 
-Vault Knowledge Base, or OKB, turns your Obsidian vault into an agent-ready
-local knowledge base for Codex, Claude Code, OpenCode, and MCP-compatible
-assistants.
+Vault Knowledge Base, or OKB, turns your Obsidian vault into a private local
+retrieval layer for Codex, Claude Code, OpenCode, and MCP-compatible
+assistants. Search by keyword or meaning, surface related notes, and serve
+grounded context to agents without uploading your notes to a hosted knowledge
+service.
 
 It wraps the local `obsidian-kb` service inside Obsidian, giving you a side
 panel for search, related notes, and index maintenance, while exposing the same
@@ -26,14 +29,29 @@ UI and lifecycle wrapper around the separate `obsidian-kb` CLI, which must be
 installed on the same machine. On desktop, OKB starts `obsidian-kb serve` as a
 local external process and talks to it over localhost HTTP.
 
+## Quick Start
+
+1. Install **Vault Knowledge Base** from Obsidian's Community Plugins browser.
+2. Install the companion `obsidian-kb` CLI:
+
+   ```bash
+   brew install dgalichet/tap/obsidian-kb
+   ```
+
+3. Enable **Vault Knowledge Base** in Obsidian.
+4. Open **Settings -> Community plugins -> OKB**.
+5. Click **Initialize** to create the vault configuration.
+6. Start the local service, or leave auto-start enabled.
+7. Open the OKB side panel and refresh or rebuild the index.
+
 ## Why Vault Knowledge Base?
 
 Obsidian is a strong foundation for a personal or team knowledge base: markdown
 files, local ownership, backlinks, graph navigation, and Git-friendly storage.
 
-LLM agents need more than raw file access. They need a simple, reliable way to
+AI agents need more than raw file access. They need a simple, reliable way to
 search the vault, follow relationships, inspect relevant notes, and keep
-context grounded in the actual knowledge base.
+answers grounded in the actual knowledge base.
 
 Vault Knowledge Base provides that bridge:
 
@@ -51,7 +69,7 @@ workspace and agents help with search, linking, summarization, and maintenance.
 
 Use Vault Knowledge Base when you want to:
 
-- Give Codex, Claude Code, OpenCode, or another agent fast local vault search.
+- Let Codex, Claude Code, OpenCode, or another agent search your vault locally.
 - Add MCP access to a local markdown knowledge base.
 - Build a local RAG-style workflow without moving your vault to a hosted
   service.
@@ -59,6 +77,9 @@ Use Vault Knowledge Base when you want to:
   discovery.
 - Keep Obsidian as the editing interface while agents use `obsidian-kb` as the
   retrieval layer.
+
+Use OKB when you want agents to search and inspect your vault reliably without
+turning your vault into a hosted AI knowledge base.
 
 ## What It Does
 

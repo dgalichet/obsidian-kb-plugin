@@ -13,7 +13,10 @@ import { ObsidianKbProcessManager } from "./process";
 import { ObsidianKbSettingTab } from "./settings";
 import {
   DEFAULT_SETTINGS,
+  type KbStatus,
+  type SetupCheck,
   type ObsidianKbSettings,
+  type SetupReport,
 } from "./types";
 import {
   ObsidianKbView,
@@ -213,8 +216,104 @@ export default class ObsidianKbPlugin extends Plugin {
 
   recreateClient(): void {
     this.client = new ObsidianKbClient(
-      `http://${this.settings.host}:${this.settings.port}`,
+      this.getServiceUrl(),
     );
+  }
+
+  getServiceUrl(): string {
+    return `http://${this.settings.host}:${this.settings.port}`;
+  }
+
+  getMcpEndpoint(): string {
+    return `${this.getServiceUrl()}/mcp`;
+  }
+
+  async getSetupReport(): Promise<SetupReport> {
+    const vaultPath = this.processManager.resolveVaultPath();
+    const executablePath = this.processManager.resolveExecutablePath();
+    const configPath = this.processManager.resolveConfigPath();
+    const configExists = Boolean(vaultPath) && this.processManager.configFileExists();
+    let serviceStatus: KbStatus | null = null;
+    let serviceError = "";
+
+    try {
+      serviceStatus = await this.client.status();
+    } catch (error) {
+      serviceError = error instanceof Error ? error.message : String(error);
+    }
+
+    const serviceMatchesVault =
+      !serviceStatus?.vault_path ||
+      !vaultPath ||
+      serviceStatus.vault_path === vaultPath;
+    const serviceReady = Boolean(serviceStatus && serviceMatchesVault);
+
+    const checks: SetupCheck[] = [
+      {
+        id: "vault",
+        label: "Vault detected",
+        detail: vaultPath || "Set a vault path below, or open a desktop vault.",
+        state: vaultPath ? "passed" : "attention",
+      },
+      {
+        id: "binary",
+        label: "obsidian-kb binary found",
+        detail:
+          executablePath ??
+          `Cannot find ${this.settings.executablePath || "obsidian-kb"}. Set an absolute path below.`,
+        state: executablePath ? "passed" : "attention",
+      },
+      {
+        id: "config",
+        label: "Vault config present",
+        detail: configExists
+          ? configPath
+          : vaultPath
+            ? `Create ${configPath} for this vault.`
+            : "Resolve the vault path before creating the config.",
+        state: configExists ? "passed" : "attention",
+        action: !configExists && vaultPath ? "initialize-config" : undefined,
+        actionLabel: !configExists && vaultPath ? "Initialize config" : undefined,
+      },
+      {
+        id: "service",
+        label: "Service running",
+        detail: serviceDetail(
+          this.getServiceUrl(),
+          this.settings.host,
+          this.settings.port,
+          vaultPath,
+          serviceStatus,
+          serviceError,
+        ),
+        state: serviceReady ? "passed" : "attention",
+        action: serviceStatus ? undefined : "start-service",
+        actionLabel: serviceStatus ? undefined : "Start service",
+      },
+      {
+        id: "index",
+        label: "Index ready",
+        detail: serviceReady
+          ? setupIndexDetail(serviceStatus)
+          : "Connect to the matching vault service before checking the index.",
+        state: serviceReady && serviceStatus?.index?.available ? "passed" : "attention",
+        action: serviceReady ? setupIndexAction(serviceStatus) : undefined,
+        actionLabel: serviceReady ? setupIndexActionLabel(serviceStatus) : undefined,
+      },
+    ];
+    const passedChecks = checks.filter((check) => check.state === "passed").length;
+
+    return {
+      summary:
+        passedChecks === checks.length
+          ? "Local retrieval is ready."
+          : "Local retrieval is almost ready.",
+      passedChecks,
+      totalChecks: checks.length,
+      checks,
+      mcpEndpoint: this.getMcpEndpoint(),
+      serviceOutput: this.processManager.output,
+    };
   }
 
   async activateView(): Promise<ObsidianKbView | null> {
@@ -281,6 +380,64 @@ export default class ObsidianKbPlugin extends Plugin {
       return false;
     }
   }
+}
+
+function setupIndexDetail(status: KbStatus | null): string {
+  if (!status) {
+    return "Start the service before checking the index.";
+  }
+  if (status.index?.error) {
+    return status.index.error;
+  }
+  if (status.index?.available) {
+    const stats = status.index.stats;
+    const details = [
+      typeof stats?.notes === "number" ? `${stats.notes.toLocaleString()} notes` : null,
+      typeof stats?.chunks === "number" ? `${stats.chunks.toLocaleString()} chunks` : null,
+    ].filter((value): value is string => typeof value === "string");
+    return details.length > 0 ? details.join(" / ") : "The local index is available.";
+  }
+  return "Build the local search index before searching.";
+}
+
+function serviceDetail(
+  serviceUrl: string,
+  host: string,
+  port: number,
+  vaultPath: string,
+  status: KbStatus | null,
+  error: string,
+): string {
+  if (!status) {
+    return error || `Start obsidian-kb serve on ${host}:${port}.`;
+  }
+
+  if (status.vault_path && vaultPath && status.vault_path !== vaultPath) {
+    return `${serviceUrl} is serving ${status.vault_path}, not ${vaultPath}.`;
+  }
+
+  return `${serviceUrl} is reachable.`;
+}
+
+function setupIndexAction(status: KbStatus | null): SetupCheck["action"] {
+  if (!status) {
+    return undefined;
+  }
+  if (status.index?.available) {
+    return undefined;
+  }
+  return status.index?.error ? "rebuild-index" : "refresh-index";
+}
+
+function setupIndexActionLabel(status: KbStatus | null): SetupCheck["actionLabel"] {
+  const action = setupIndexAction(status);
+  if (action === "rebuild-index") {
+    return "Rebuild index";
+  }
+  if (action === "refresh-index") {
+    return "Refresh index";
+  }
+  return undefined;
 }
 
 async function waitForService(

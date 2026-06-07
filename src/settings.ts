@@ -1,7 +1,7 @@
 import { App, Notice, PluginSettingTab, Setting } from "obsidian";
 import { normalizeExcludeHeadings } from "./kb-config";
 import type ObsidianKbPlugin from "./main";
-import type { SearchMode } from "./types";
+import type { SearchMode, SetupActionId, SetupReport } from "./types";
 
 export class ObsidianKbSettingTab extends PluginSettingTab {
   constructor(
@@ -14,6 +14,8 @@ export class ObsidianKbSettingTab extends PluginSettingTab {
   display(): void {
     const { containerEl } = this;
     containerEl.empty();
+
+    this.renderSetupAssistant(containerEl);
 
     new Setting(containerEl).setName("Setup").setHeading();
 
@@ -357,5 +359,188 @@ export class ObsidianKbSettingTab extends PluginSettingTab {
             await this.plugin.applyKbConfigDraft();
           }),
       );
+  }
+
+  private renderSetupAssistant(containerEl: HTMLElement): void {
+    const card = containerEl.createDiv({ cls: "obsidian-kb-setup-assistant" });
+    const header = card.createDiv({ cls: "obsidian-kb-setup-header" });
+    const titleGroup = header.createDiv({ cls: "obsidian-kb-setup-title-group" });
+    titleGroup.createDiv({
+      cls: "obsidian-kb-setup-title",
+      text: "Setup assistant",
+    });
+    titleGroup.createDiv({
+      cls: "obsidian-kb-setup-subtitle",
+      text: "Check local retrieval, service health, index readiness, and MCP access.",
+    });
+
+    const runButton = header.createEl("button", {
+      cls: "obsidian-kb-setup-run",
+      text: "Run checks",
+      attr: {
+        type: "button",
+      },
+    });
+
+    const body = card.createDiv({ cls: "obsidian-kb-setup-body" });
+    runButton.addEventListener("click", () => {
+      void this.refreshSetupAssistant(body);
+    });
+    void this.refreshSetupAssistant(body);
+  }
+
+  private async refreshSetupAssistant(body: HTMLElement): Promise<void> {
+    body.empty();
+    body.createDiv({
+      cls: "obsidian-kb-setup-loading",
+      text: "Checking local setup...",
+    });
+
+    try {
+      const report = await this.plugin.getSetupReport();
+      this.renderSetupReport(body, report);
+    } catch (error) {
+      body.empty();
+      body.createDiv({
+        cls: "obsidian-kb-setup-error",
+        text: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  private renderSetupReport(body: HTMLElement, report: SetupReport): void {
+    body.empty();
+
+    const summary = body.createDiv({ cls: "obsidian-kb-setup-summary" });
+    summary.createDiv({
+      cls: "obsidian-kb-setup-summary-title",
+      text: report.summary,
+    });
+    summary.createDiv({
+      cls: "obsidian-kb-setup-summary-count",
+      text: `${report.passedChecks} / ${report.totalChecks} checks passed`,
+    });
+
+    const checks = body.createDiv({ cls: "obsidian-kb-setup-checks" });
+    for (const check of report.checks) {
+      const row = checks.createDiv({ cls: "obsidian-kb-setup-check" });
+      row.dataset.state = check.state;
+      const marker = row.createSpan({ cls: "obsidian-kb-setup-check-marker" });
+      marker.setText(check.state === "passed" ? "OK" : "!");
+
+      const copy = row.createDiv({ cls: "obsidian-kb-setup-check-copy" });
+      copy.createDiv({
+        cls: "obsidian-kb-setup-check-label",
+        text: check.label,
+      });
+      copy.createDiv({
+        cls: "obsidian-kb-setup-check-detail",
+        text: check.detail,
+      });
+
+      if (check.action && check.actionLabel) {
+        const actionButton = row.createEl("button", {
+          cls: "obsidian-kb-setup-check-action",
+          text: check.actionLabel,
+          attr: {
+            type: "button",
+          },
+        });
+        actionButton.addEventListener("click", () => {
+          void this.runSetupAction(check.action, body);
+        });
+      }
+    }
+
+    const agent = body.createDiv({ cls: "obsidian-kb-setup-agent" });
+    agent.createDiv({
+      cls: "obsidian-kb-setup-agent-title",
+      text: "Agent access",
+    });
+    const endpoint = agent.createDiv({ cls: "obsidian-kb-setup-endpoint" });
+    endpoint.createSpan({
+      cls: "obsidian-kb-setup-endpoint-label",
+      text: "MCP endpoint",
+    });
+    endpoint.createEl("code", {
+      cls: "obsidian-kb-setup-endpoint-value",
+      text: report.mcpEndpoint,
+    });
+
+    const actions = agent.createDiv({ cls: "obsidian-kb-setup-agent-actions" });
+    actions
+      .createEl("button", {
+        text: "Copy endpoint",
+        attr: {
+          type: "button",
+        },
+      })
+      .addEventListener("click", () => {
+        void this.copyText(report.mcpEndpoint, "MCP endpoint copied");
+      });
+    actions
+      .createEl("button", {
+        text: "Run doctor",
+        attr: {
+          type: "button",
+        },
+      })
+      .addEventListener("click", () => {
+        void this.runDoctor(body);
+      });
+
+    if (report.serviceOutput.trim()) {
+      const logs = agent.createEl("details", { cls: "obsidian-kb-setup-logs" });
+      logs.createEl("summary", { text: "Service logs" });
+      logs.createEl("pre", { text: report.serviceOutput.trim() });
+    }
+  }
+
+  private async runSetupAction(
+    action: SetupActionId | undefined,
+    body: HTMLElement,
+  ): Promise<void> {
+    if (!action) {
+      return;
+    }
+
+    try {
+      if (action === "initialize-config") {
+        const output = await this.plugin.processManager.runInit();
+        new Notice(output || "obsidian-kb config initialized");
+      } else if (action === "start-service") {
+        await this.plugin.ensureService();
+      } else if (action === "refresh-index") {
+        await this.plugin.client.refreshIndex();
+        new Notice("obsidian-kb index refreshed");
+      } else if (action === "rebuild-index") {
+        await this.plugin.client.refreshIndex({ rebuild: true });
+        new Notice("obsidian-kb index rebuilt");
+      }
+    } catch (error) {
+      new Notice(error instanceof Error ? error.message : String(error));
+    } finally {
+      await this.refreshSetupAssistant(body);
+    }
+  }
+
+  private async runDoctor(body: HTMLElement): Promise<void> {
+    try {
+      await this.plugin.processManager.runDoctor();
+      new Notice("obsidian-kb doctor completed");
+    } catch (error) {
+      new Notice(error instanceof Error ? error.message : String(error));
+    } finally {
+      await this.refreshSetupAssistant(body);
+    }
+  }
+
+  private async copyText(text: string, message: string): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(text);
+      new Notice(message);
+    } catch (error) {
+      new Notice(error instanceof Error ? error.message : String(error));
+    }
   }
 }

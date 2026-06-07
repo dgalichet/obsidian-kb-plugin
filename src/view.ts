@@ -434,6 +434,7 @@ export class ObsidianKbView extends ItemView {
 
     const details = this.indexStatsEl.createDiv({ cls: "obsidian-kb-index-details" });
     this.renderDetail(details, "Vault", status.vault_path ?? "unknown");
+    this.renderDetail(details, "MCP endpoint", this.plugin.getMcpEndpoint());
     this.renderDetail(
       details,
       "Index",

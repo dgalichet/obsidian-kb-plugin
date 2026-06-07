@@ -169,3 +169,29 @@ export type ServiceState =
   | "starting"
   | "ready"
   | "error";
+
+export type SetupActionId =
+  | "initialize-config"
+  | "start-service"
+  | "refresh-index"
+  | "rebuild-index";
+
+export type SetupCheckState = "passed" | "attention";
+
+export interface SetupCheck {
+  id: string;
+  label: string;
+  detail: string;
+  state: SetupCheckState;
+  action?: SetupActionId;
+  actionLabel?: string;
+}
+
+export interface SetupReport {
+  summary: string;
+  passedChecks: number;
+  totalChecks: number;
+  checks: SetupCheck[];
+  mcpEndpoint: string;
+  serviceOutput: string;
+}

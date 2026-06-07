@@ -1,7 +1,7 @@
 import type { App } from "obsidian";
 import { FileSystemAdapter, Notice, Platform } from "obsidian";
 import { spawn, type ChildProcessWithoutNullStreams } from "child_process";
-import { accessSync, constants } from "fs";
+import { accessSync, constants, existsSync } from "fs";
 import { delimiter, isAbsolute, join } from "path";
 import { homedir } from "os";
 import type { ObsidianKbSettings } from "./types";
@@ -60,6 +60,14 @@ export class ObsidianKbProcessManager {
 
     const expanded = expandHome(configuredPath);
     return isAbsolute(expanded) ? expanded : join(vaultPath, expanded);
+  }
+
+  resolveExecutablePath(): string | null {
+    return resolveExecutablePath(this.settingsProvider().executablePath);
+  }
+
+  configFileExists(): boolean {
+    return existsSync(this.resolveConfigPath());
   }
 
   async startServe(): Promise<void> {

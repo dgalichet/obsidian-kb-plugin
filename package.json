@@ -1,6 +1,6 @@
 {
   "name": "obsidian-kb-plugin",
-  "version": "0.2.3",
+  "version": "0.3.0",
   "description": "Agent-ready local search and MCP access for Obsidian vaults.",
   "main": "main.js",
   "scripts": {
