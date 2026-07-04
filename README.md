@@ -3,11 +3,7 @@
 Local semantic search, related notes, and MCP access for AI agents, private to
 your vault.
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/obsidian-kb-logo.png">
-  <source media="(prefers-color-scheme: light)" srcset="assets/obsidian-kb-logo-light.png">
-  <img alt="obsidian-kb logo" src="assets/obsidian-kb-logo-light.png" width="720">
-</picture>
+![obsidian-kb logo](assets/obsidian-kb-logo.png)
 
 Vault Knowledge Base, or OKB, turns your Obsidian vault into a private local
 retrieval layer for Codex, Claude Code, OpenCode, and MCP-compatible
