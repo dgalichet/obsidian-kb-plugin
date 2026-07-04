@@ -2,6 +2,8 @@ import tsparser from "@typescript-eslint/parser";
 import { defineConfig } from "eslint/config";
 import obsidianmd from "eslint-plugin-obsidianmd";
 
+const tsconfigRootDir = import.meta.dirname;
+
 const typedObsidianRules = {
   "obsidianmd/no-plugin-as-component": "error",
   "obsidianmd/no-view-references-in-plugin": "error",
@@ -33,6 +35,7 @@ export default defineConfig([
       parser: tsparser,
       parserOptions: {
         project: "./tsconfig.json",
+        tsconfigRootDir,
       },
     },
     rules: {
