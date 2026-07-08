@@ -1,6 +1,8 @@
 import {
+  type Editor,
   HoverPopover,
   ItemView,
+  MarkdownView,
   MarkdownRenderer,
   Notice,
   setIcon,
@@ -72,6 +74,8 @@ export class ObsidianKbView extends ItemView {
   private chunkPreviewRequestId = 0;
   private chunkPreviewPopover: HoverPopover | null = null;
   private readonly chunkPreviewCache = new Map<string, Promise<KbChunkRecord>>();
+  private lastMarkdownEditor: Editor | null = null;
+  private lastMarkdownFilePath: string | null = null;
   private serviceState: ServiceState = "unknown";
 
   constructor(
@@ -95,8 +99,15 @@ export class ObsidianKbView extends ItemView {
 
   async onOpen(): Promise<void> {
     this.render();
+    this.rememberActiveEditor();
+    this.registerEvent(
+      this.app.workspace.on("active-leaf-change", () => {
+        this.rememberActiveEditor();
+      }),
+    );
     this.registerEvent(
       this.app.workspace.on("file-open", () => {
+        this.rememberActiveEditor();
         this.updateRelatedContext();
         if (this.activeTab === "related") {
           void this.loadRelatedForCurrentNote(false);
@@ -682,9 +693,9 @@ export class ObsidianKbView extends ItemView {
       return;
     }
 
-    const editor = this.app.workspace.activeEditor?.editor;
+    const editor = this.getEditorForInsertion();
     if (!editor) {
-      new Notice("No active note editor");
+      new Notice("No note editor available");
       return;
     }
 
@@ -711,6 +722,47 @@ export class ObsidianKbView extends ItemView {
     this.renderContextTrays();
     this.markActionButton(button);
     new Notice("Added to context");
+  }
+
+  private rememberActiveEditor(): void {
+    const activeEditor = this.app.workspace.activeEditor;
+    if (!activeEditor?.editor) {
+      return;
+    }
+
+    this.lastMarkdownEditor = activeEditor.editor;
+    this.lastMarkdownFilePath = activeEditor.file?.path ?? null;
+  }
+
+  private getEditorForInsertion(): Editor | null {
+    this.rememberActiveEditor();
+
+    const activeFilePath =
+      this.app.workspace.getActiveFile()?.path ?? this.lastMarkdownFilePath;
+    if (activeFilePath) {
+      const openEditor = this.findOpenMarkdownEditor(activeFilePath);
+      if (openEditor) {
+        return openEditor;
+      }
+    }
+
+    return this.lastMarkdownEditor;
+  }
+
+  private findOpenMarkdownEditor(path: string): Editor | null {
+    for (const leaf of this.app.workspace.getLeavesOfType("markdown")) {
+      if (!(leaf.view instanceof MarkdownView)) {
+        continue;
+      }
+      if (leaf.view.file?.path !== path) {
+        continue;
+      }
+
+      this.lastMarkdownEditor = leaf.view.editor;
+      this.lastMarkdownFilePath = leaf.view.file.path;
+      return leaf.view.editor;
+    }
+    return null;
   }
 
   private async copyResultContext(
