@@ -3,6 +3,7 @@ import {
   ItemView,
   MarkdownRenderer,
   Notice,
+  setIcon,
   TFile,
   WorkspaceLeaf,
 } from "obsidian";
@@ -60,8 +61,10 @@ export class ObsidianKbView extends ItemView {
   private relatedContextEl!: HTMLElement;
   private relatedResultsEl!: HTMLElement;
   private indexStatsEl!: HTMLElement;
+  private contextTrayEls: HTMLElement[] = [];
   private readonly tabButtons: Partial<Record<KbTab, HTMLElement>> = {};
   private readonly tabPanels: Partial<Record<KbTab, HTMLElement>> = {};
+  private readonly contextItems = new Map<string, ResultCardData>();
   private activeTab: KbTab = "search";
   private relatedLoadedNotePath: string | null = null;
   private relatedLoadedTop: number | null = null;
@@ -140,6 +143,7 @@ export class ObsidianKbView extends ItemView {
     const container = this.containerEl.children[1];
     container.empty();
     container.addClass("obsidian-kb-view");
+    this.contextTrayEls = [];
 
     const header = container.createDiv({ cls: "obsidian-kb-header" });
     this.renderTabs(header);
@@ -243,6 +247,7 @@ export class ObsidianKbView extends ItemView {
 
     this.searchResultsEl = panel.createDiv({ cls: "obsidian-kb-results" });
     this.renderEmpty(this.searchResultsEl, "Search results will appear here.");
+    this.registerContextTray(panel);
   }
 
   private renderRelatedTab(panel: HTMLElement): void {
@@ -274,6 +279,7 @@ export class ObsidianKbView extends ItemView {
 
     this.relatedResultsEl = panel.createDiv({ cls: "obsidian-kb-results" });
     this.renderEmpty(this.relatedResultsEl, "Related notes will appear here.");
+    this.registerContextTray(panel);
   }
 
   private renderIndexTab(panel: HTMLElement): void {
@@ -569,12 +575,14 @@ export class ObsidianKbView extends ItemView {
     });
     this.registerResultPreview(title, result);
 
+    const meta = titleRow.createDiv({ cls: "obsidian-kb-result-meta" });
     if (typeof result.score === "number") {
-      titleRow.createSpan({
+      meta.createSpan({
         cls: "obsidian-kb-score",
         text: result.score.toFixed(3),
       });
     }
+    this.renderResultActions(meta, result);
 
     const location = card.createEl("a", {
       cls: "obsidian-kb-location",
@@ -609,6 +617,258 @@ export class ObsidianKbView extends ItemView {
         tags.createSpan({ cls: "obsidian-kb-tag", text: tag });
       }
     }
+  }
+
+  private renderResultActions(container: HTMLElement, result: ResultCardData): void {
+    const actions = container.createDiv({ cls: "obsidian-kb-result-actions" });
+
+    this.createResultAction(actions, "copy", "Copy link", (button) => {
+      void this.copyResultLink(result, button);
+    });
+    this.createResultAction(actions, "corner-down-left", "Insert link", (button) => {
+      void this.insertResultLink(result, button);
+    });
+    this.createResultAction(actions, "list-plus", "Add to context", (button) => {
+      this.addResultToContext(result, button);
+    });
+    this.createResultAction(actions, "clipboard-copy", "Copy context", (button) => {
+      void this.copyResultContext(result, button);
+    });
+  }
+
+  private createResultAction(
+    container: HTMLElement,
+    icon: string,
+    label: string,
+    onClick: (button: HTMLButtonElement) => void,
+  ): HTMLButtonElement {
+    const button = container.createEl("button", {
+      cls: "obsidian-kb-result-action",
+      attr: {
+        type: "button",
+        "aria-label": label,
+        title: label,
+      },
+    });
+    setIcon(button, icon);
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      onClick(button);
+    });
+    return button;
+  }
+
+  private async copyResultLink(
+    result: ResultCardData,
+    button?: HTMLButtonElement,
+  ): Promise<void> {
+    const link = formatResultWikilink(result);
+    if (!link) {
+      new Notice("No link available");
+      return;
+    }
+    await this.copyText(link, "Link copied");
+    this.markActionButton(button);
+  }
+
+  private async insertResultLink(
+    result: ResultCardData,
+    button?: HTMLButtonElement,
+  ): Promise<void> {
+    const link = formatResultWikilink(result);
+    if (!link) {
+      new Notice("No link available");
+      return;
+    }
+
+    const editor = this.app.workspace.activeEditor?.editor;
+    if (!editor) {
+      new Notice("No active note editor");
+      return;
+    }
+
+    editor.replaceSelection(link);
+    new Notice("Link inserted");
+    this.markActionButton(button);
+  }
+
+  private addResultToContext(
+    result: ResultCardData,
+    button?: HTMLButtonElement,
+  ): void {
+    const key = getContextItemKey(result);
+    if (!result.path) {
+      new Notice("No result path available");
+      return;
+    }
+    if (this.contextItems.has(key)) {
+      new Notice("Result already in context");
+      return;
+    }
+
+    this.contextItems.set(key, result);
+    this.renderContextTrays();
+    this.markActionButton(button);
+    new Notice("Added to context");
+  }
+
+  private async copyResultContext(
+    result: ResultCardData,
+    button?: HTMLButtonElement,
+  ): Promise<void> {
+    const context = await this.formatContextBundle([result]);
+    await this.copyText(context, "Context copied");
+    this.markActionButton(button);
+  }
+
+  private registerContextTray(panel: HTMLElement): void {
+    const tray = panel.createDiv({ cls: "obsidian-kb-context-tray" });
+    this.contextTrayEls.push(tray);
+    this.renderContextTray(tray);
+  }
+
+  private renderContextTrays(): void {
+    for (const tray of this.contextTrayEls) {
+      this.renderContextTray(tray);
+    }
+  }
+
+  private renderContextTray(tray: HTMLElement): void {
+    tray.empty();
+    const items = [...this.contextItems.entries()];
+    tray.hidden = items.length === 0;
+    if (items.length === 0) {
+      return;
+    }
+
+    const header = tray.createDiv({ cls: "obsidian-kb-context-header" });
+    header.createDiv({
+      cls: "obsidian-kb-context-title",
+      text: `${items.length.toLocaleString()} selected`,
+    });
+
+    const actions = header.createDiv({ cls: "obsidian-kb-context-actions" });
+    actions
+      .createEl("button", { text: "Copy context", cls: "mod-cta" })
+      .addEventListener("click", () => void this.copySelectedContext());
+    actions
+      .createEl("button", { text: "Clear" })
+      .addEventListener("click", () => this.clearContext());
+
+    const list = tray.createDiv({ cls: "obsidian-kb-context-list" });
+    for (const [key, item] of items) {
+      const chip = list.createDiv({ cls: "obsidian-kb-context-chip" });
+      chip.createSpan({
+        cls: "obsidian-kb-context-chip-title",
+        text: item.title || basename(item.path) || item.path,
+      });
+      const remove = chip.createEl("button", {
+        cls: "obsidian-kb-context-remove",
+        attr: {
+          type: "button",
+          "aria-label": "Remove",
+          title: "Remove",
+        },
+      });
+      setIcon(remove, "x");
+      remove.addEventListener("click", () => {
+        this.contextItems.delete(key);
+        this.renderContextTrays();
+      });
+    }
+  }
+
+  private async copySelectedContext(): Promise<void> {
+    const items = [...this.contextItems.values()];
+    if (items.length === 0) {
+      new Notice("No selected context");
+      return;
+    }
+
+    const context = await this.formatContextBundle(items);
+    await this.copyText(context, "Context copied");
+  }
+
+  private clearContext(): void {
+    this.contextItems.clear();
+    this.renderContextTrays();
+    new Notice("Context cleared");
+  }
+
+  private async formatContextBundle(results: ResultCardData[]): Promise<string> {
+    const sections = await Promise.all(
+      results.map((result, index) => this.formatResultContext(result, index + 1)),
+    );
+    return ["## Vault Knowledge Base context", "", ...sections].join("\n");
+  }
+
+  private async formatResultContext(
+    result: ResultCardData,
+    index: number,
+  ): Promise<string> {
+    const lines = [`### ${index}. ${result.title || basename(result.path) || result.path}`];
+    const link = formatResultWikilink(result);
+    if (link) {
+      lines.push(`- Link: ${link}`);
+    }
+    if (result.path) {
+      lines.push(`- Path: ${formatInlineCode(result.path)}`);
+    }
+    const location = formatResultLocation(result);
+    if (location) {
+      lines.push(`- Location: ${location}`);
+    }
+    if (typeof result.score === "number") {
+      lines.push(`- Score: ${result.score.toFixed(3)}`);
+    }
+    if (result.tags?.length) {
+      lines.push(`- Tags: ${result.tags.join(", ")}`);
+    }
+    if (result.chunkId) {
+      lines.push(`- Chunk ID: ${formatInlineCode(result.chunkId)}`);
+    }
+
+    const text = await this.getResultContextText(result);
+    if (text) {
+      lines.push("", "```text", sanitizeFenceText(text), "```");
+    }
+
+    return lines.join("\n");
+  }
+
+  private async getResultContextText(result: ResultCardData): Promise<string | null> {
+    const maxChars = Math.max(500, this.plugin.settings.maxChars);
+    if (result.chunkId) {
+      try {
+        const chunk = await this.loadPreviewChunk(result.chunkId);
+        const text = chunk.text.trim();
+        if (text) {
+          return truncateText(text, maxChars);
+        }
+      } catch {
+        // Fall back to the snippet already returned by search.
+      }
+    }
+
+    return result.snippet ? truncateText(normalizeWhitespace(result.snippet), maxChars) : null;
+  }
+
+  private async copyText(text: string, message: string): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(text);
+      new Notice(message);
+    } catch (error) {
+      new Notice(error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  private markActionButton(button: HTMLButtonElement | undefined): void {
+    if (!button) {
+      return;
+    }
+    button.addClass("is-confirmed");
+    window.setTimeout(() => button.removeClass("is-confirmed"), 900);
   }
 
   private async openResult(result: ResultCardData): Promise<void> {
@@ -819,6 +1079,18 @@ function normalizeWhitespace(value: string): string {
   return value.replace(/\s+/g, " ").trim();
 }
 
+function truncateText(value: string, maxChars: number): string {
+  const trimmed = value.trim();
+  if (trimmed.length <= maxChars) {
+    return trimmed;
+  }
+  return `${trimmed.slice(0, Math.max(0, maxChars - 3)).trimEnd()}...`;
+}
+
+function sanitizeFenceText(value: string): string {
+  return value.replace(/```/g, "'''");
+}
+
 function toSearchResultCardData(
   hit: KbSearchHit,
   showChunkText: boolean,
@@ -921,6 +1193,18 @@ function formatPreviewLocation(chunk: KbChunkRecord): string {
   return parts.filter(Boolean).join(" · ");
 }
 
+function formatResultLocation(result: ResultCardData): string | null {
+  if (typeof result.startPage === "number") {
+    const endPage = typeof result.endPage === "number" ? result.endPage : result.startPage;
+    return endPage === result.startPage ? `Page ${result.startPage}` : `Pages ${result.startPage}-${endPage}`;
+  }
+  if (typeof result.lineStart === "number") {
+    const endLine = typeof result.lineEnd === "number" ? result.lineEnd : result.lineStart;
+    return endLine === result.lineStart ? `Line ${result.lineStart}` : `Lines ${result.lineStart}-${endLine}`;
+  }
+  return result.heading ?? null;
+}
+
 function formatLoaded(value: boolean | undefined): string {
   if (typeof value !== "boolean") {
     return "unknown";
@@ -1010,6 +1294,44 @@ function getPreviewLinkText(result: ResultCardData): string | null {
     return result.path;
   }
   return `${result.path}#${lastHeading(result.heading)}`;
+}
+
+function formatResultWikilink(result: ResultCardData): string | null {
+  const target = getResultLinkTarget(result);
+  return target ? `[[${target}]]` : null;
+}
+
+function getResultLinkTarget(result: ResultCardData): string | null {
+  if (!result.path) {
+    return null;
+  }
+  const pdfPageLink = getPdfPageLinkText(result.path, result.startPage);
+  if (pdfPageLink) {
+    return pdfPageLink;
+  }
+  const path = stripMarkdownExtension(result.path);
+  if (!result.heading) {
+    return path;
+  }
+  return `${path}#${lastHeading(result.heading)}`;
+}
+
+function stripMarkdownExtension(path: string): string {
+  return path.toLowerCase().endsWith(".md") ? path.slice(0, -3) : path;
+}
+
+function getContextItemKey(result: ResultCardData): string {
+  return [
+    result.path,
+    result.heading ?? "",
+    result.chunkId ?? "",
+    result.startPage ?? "",
+    result.lineStart ?? "",
+  ].join("\u0000");
+}
+
+function formatInlineCode(value: string): string {
+  return `\`${value.replace(/`/g, "\\`")}\``;
 }
 
 function isPdfResult(result: ResultCardData): boolean {
