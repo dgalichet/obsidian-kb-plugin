@@ -245,7 +245,7 @@ export default class ObsidianKbPlugin extends Plugin {
     const serviceMatchesVault =
       !serviceStatus?.vault_path ||
       !vaultPath ||
-      serviceStatus.vault_path === vaultPath;
+      normalizeVaultPath(serviceStatus.vault_path) === normalizeVaultPath(vaultPath);
     const serviceReady = Boolean(serviceStatus && serviceMatchesVault);
 
     const checks: SetupCheck[] = [
@@ -400,6 +400,20 @@ function setupIndexDetail(status: KbStatus | null): string {
   return "Build the local search index before searching.";
 }
 
+function normalizeVaultPath(value: string): string {
+  if (!value) {
+    return value;
+  }
+  let normalized = value;
+  if (normalized.startsWith("\\\\?\\")) {
+    normalized = normalized.slice(4);
+  }
+  if (normalized.startsWith("\\?")) {
+    normalized = normalized.slice(2);
+  }
+  return normalized.replace(/\\+$/g, "").toLowerCase();
+}
+
 function serviceDetail(
   serviceUrl: string,
   host: string,
@@ -412,7 +426,11 @@ function serviceDetail(
     return error || `Start obsidian-kb serve on ${host}:${port}.`;
   }
 
-  if (status.vault_path && vaultPath && status.vault_path !== vaultPath) {
+  if (
+    status.vault_path &&
+    vaultPath &&
+    normalizeVaultPath(status.vault_path) !== normalizeVaultPath(vaultPath)
+  ) {
     return `${serviceUrl} is serving ${status.vault_path}, not ${vaultPath}.`;
   }
 
