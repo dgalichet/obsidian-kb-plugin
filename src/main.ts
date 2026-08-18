@@ -11,6 +11,7 @@ import {
 } from "./kb-config";
 import { ObsidianKbProcessManager } from "./process";
 import { ObsidianKbSettingTab } from "./settings";
+import { normalizeVaultPath } from "./vault-path";
 import {
   DEFAULT_SETTINGS,
   type KbStatus,
@@ -245,7 +246,8 @@ export default class ObsidianKbPlugin extends Plugin {
     const serviceMatchesVault =
       !serviceStatus?.vault_path ||
       !vaultPath ||
-      serviceStatus.vault_path === vaultPath;
+      normalizeVaultPath(serviceStatus.vault_path, Platform.isWin) ===
+      normalizeVaultPath(vaultPath, Platform.isWin);
     const serviceReady = Boolean(serviceStatus && serviceMatchesVault);
 
     const checks: SetupCheck[] = [
@@ -412,7 +414,12 @@ function serviceDetail(
     return error || `Start obsidian-kb serve on ${host}:${port}.`;
   }
 
-  if (status.vault_path && vaultPath && status.vault_path !== vaultPath) {
+  if (
+    status.vault_path &&
+    vaultPath &&
+    normalizeVaultPath(status.vault_path, Platform.isWin) !==
+      normalizeVaultPath(vaultPath, Platform.isWin)
+  ) {
     return `${serviceUrl} is serving ${status.vault_path}, not ${vaultPath}.`;
   }
 
