@@ -11,6 +11,7 @@ import {
 } from "./kb-config";
 import { ObsidianKbProcessManager } from "./process";
 import { ObsidianKbSettingTab } from "./settings";
+import { normalizeVaultPath } from "./vault-path";
 import {
   DEFAULT_SETTINGS,
   type KbStatus,
@@ -245,7 +246,8 @@ export default class ObsidianKbPlugin extends Plugin {
     const serviceMatchesVault =
       !serviceStatus?.vault_path ||
       !vaultPath ||
-      normalizeVaultPath(serviceStatus.vault_path) === normalizeVaultPath(vaultPath);
+      normalizeVaultPath(serviceStatus.vault_path, Platform.isWin) ===
+      normalizeVaultPath(vaultPath, Platform.isWin);
     const serviceReady = Boolean(serviceStatus && serviceMatchesVault);
 
     const checks: SetupCheck[] = [
@@ -400,20 +402,6 @@ function setupIndexDetail(status: KbStatus | null): string {
   return "Build the local search index before searching.";
 }
 
-function normalizeVaultPath(value: string): string {
-  if (!value) {
-    return value;
-  }
-  let normalized = value;
-  if (normalized.startsWith("\\\\?\\")) {
-    normalized = normalized.slice(4);
-  }
-  if (normalized.startsWith("\\?")) {
-    normalized = normalized.slice(2);
-  }
-  return normalized.replace(/\\+$/g, "").toLowerCase();
-}
-
 function serviceDetail(
   serviceUrl: string,
   host: string,
@@ -429,7 +417,8 @@ function serviceDetail(
   if (
     status.vault_path &&
     vaultPath &&
-    normalizeVaultPath(status.vault_path) !== normalizeVaultPath(vaultPath)
+    normalizeVaultPath(status.vault_path, Platform.isWin) !==
+      normalizeVaultPath(vaultPath, Platform.isWin)
   ) {
     return `${serviceUrl} is serving ${status.vault_path}, not ${vaultPath}.`;
   }
