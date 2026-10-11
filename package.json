@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "node esbuild.config.mjs",
     "build": "tsc --noEmit --skipLibCheck && node esbuild.config.mjs production",
-    "test": "node scripts/test-vault-paths.mjs",
+    "test": "node scripts/test-vault-paths.mjs && node scripts/test-settings.mjs",
     "lint": "eslint .",
     "validate": "node scripts/validate-plugin-release.mjs",
     "validate:assets": "node scripts/validate-plugin-release.mjs --assets",
@@ -28,7 +28,7 @@
     "esbuild": "^0.24.2",
     "eslint": "^9.39.4",
     "eslint-plugin-obsidianmd": "^0.3.0",
-    "obsidian": "^1.7.2",
+    "obsidian": "^1.13.0",
     "typescript": "^5.7.2"
   }
 }
