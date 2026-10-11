@@ -1,5 +1,6 @@
-import { Notice, Plugin, Platform, WorkspaceLeaf } from "obsidian";
+import { FileSystemAdapter, Notice, Plugin, Platform, WorkspaceLeaf } from "obsidian";
 import { ObsidianKbClient } from "./client";
+import { currentNoteIdentity, CurrentNotePublisher } from "./current-note";
 import {
   OBSIDIAN_KB_ICON_ID,
   registerObsidianKbIcon,
@@ -28,7 +29,9 @@ export default class ObsidianKbPlugin extends Plugin {
   settings!: ObsidianKbSettings;
   client!: ObsidianKbClient;
   processManager!: ObsidianKbProcessManager;
+  private currentNotePublisher: CurrentNotePublisher | null = null;
   private readonly stopOnWindowUnload = (): void => {
+    void this.currentNotePublisher?.stop();
     this.processManager?.stopServeNow();
   };
 
@@ -37,6 +40,7 @@ export default class ObsidianKbPlugin extends Plugin {
     registerObsidianKbIcon();
     this.recreateClient();
     this.processManager = new ObsidianKbProcessManager(this.app, () => this.settings);
+    this.startCurrentNoteContext();
     await this.loadKbConfigDraft();
     window.addEventListener("beforeunload", this.stopOnWindowUnload);
     window.addEventListener("unload", this.stopOnWindowUnload);
@@ -133,7 +137,35 @@ export default class ObsidianKbPlugin extends Plugin {
   onunload(): void {
     window.removeEventListener("beforeunload", this.stopOnWindowUnload);
     window.removeEventListener("unload", this.stopOnWindowUnload);
+    void this.currentNotePublisher?.stop();
     void this.stopManagedService();
+  }
+
+  private startCurrentNoteContext(): void {
+    const adapter = this.app.vault.adapter;
+    if (!Platform.isDesktopApp || !(adapter instanceof FileSystemAdapter)) {
+      return;
+    }
+    // Use the actual Obsidian vault, not a configured retrieval vault override.
+    const publisher = new CurrentNotePublisher(
+      adapter.getBasePath(),
+      () => currentNoteIdentity(this.app),
+      () => this.client,
+      () => {
+        new Notice(
+          "Current note sharing requires a newer obsidian-kb version. Update obsidian-kb, then restart the local service.",
+          10_000,
+        );
+      },
+    );
+    this.currentNotePublisher = publisher;
+    const refresh = (): void => publisher.refresh();
+    this.registerEvent(this.app.workspace.on("file-open", refresh));
+    this.registerEvent(this.app.workspace.on("active-leaf-change", refresh));
+    this.registerEvent(this.app.workspace.on("layout-change", refresh));
+    this.registerEvent(this.app.vault.on("rename", refresh));
+    this.registerEvent(this.app.vault.on("delete", refresh));
+    this.app.workspace.onLayoutReady(() => publisher.start());
   }
 
   async loadSettings(): Promise<void> {
@@ -219,6 +251,7 @@ export default class ObsidianKbPlugin extends Plugin {
     this.client = new ObsidianKbClient(
       this.getServiceUrl(),
     );
+    this.currentNotePublisher?.refresh(true);
   }
 
   getServiceUrl(): string {
@@ -339,6 +372,7 @@ export default class ObsidianKbPlugin extends Plugin {
   async ensureService(): Promise<void> {
     try {
       await this.client.health();
+      this.currentNotePublisher?.refresh(true);
       return;
     } catch {
       // Fall through and try to start the managed local process.
@@ -347,6 +381,7 @@ export default class ObsidianKbPlugin extends Plugin {
     try {
       await this.processManager.startServe();
       await waitForService(() => this.client.health(), 8000);
+      this.currentNotePublisher?.refresh(true);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       new Notice(`obsidian-kb unavailable: ${message}`);

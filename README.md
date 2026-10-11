@@ -87,6 +87,44 @@ turning your vault into a hosted AI knowledge base.
 - Opens result notes directly in Obsidian.
 - Stops only the `obsidian-kb serve` process started by the plugin. A service
   started manually in a terminal is left running.
+- Publishes the current Markdown note's identity to the local service so agents
+  can resolve requests such as "work on the current note" through MCP.
+
+## Current Note Context For Agents
+
+With a compatible `obsidian-kb` service, OKB publishes the actual Obsidian vault
+path, a session identifier, and the active Markdown note's relative path and
+title. This works even when the OKB side panel is closed. It sends no note
+content or editor selection, and it does not refresh the search index.
+
+Navigation and renames update the context after a short debounce. Focusing a
+sidebar retains the most recently active note while it remains open. Closing
+the note, deleting it, or opening a non-Markdown file clears the target. A
+heartbeat every 20 seconds renews the context; the service expires it after
+90 seconds without a heartbeat. Disabling the plugin clears its session on a
+best-effort basis, with expiration covering abrupt shutdown.
+
+Agents call the MCP tool `get_current_note` on the service's `/mcp` endpoint.
+For stdio clients, `obsidian-kb mcp` consults the HTTP service on port 27124;
+use `--workspace-port <port>` if you configured a different port in OKB.
+Multiple connected sessions can produce an `ambiguous` result; the agent can
+select a returned `session_id` explicitly instead of guessing.
+
+The context version tracks navigation and identity changes, not note contents.
+An agent should retain the returned path for the duration of a task and read
+and verify the actual file before editing it. This feature does not add an
+editing tool or provide an editor content snapshot.
+
+Context publication is restricted to loopback HTTP endpoints. The vault path
+comes from the opened Obsidian vault, even when the retrieval vault setting is
+overridden; a service configured for another vault rejects that context.
+Older services without workspace context support continue to handle search;
+if the publication endpoint is missing or does not support POST, OKB shows one
+notice per plugin load recommending an `obsidian-kb` upgrade and local service
+restart. Network outages and other service errors do not trigger this upgrade
+notice. The heartbeat keeps retrying, so sharing resumes automatically once a
+compatible service is available. Upgrade the companion CLI to enable
+`get_current_note`.
 
 ## Requirements
 
