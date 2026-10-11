@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "node esbuild.config.mjs",
     "build": "tsc --noEmit --skipLibCheck && node esbuild.config.mjs production",
-    "test": "node scripts/test-vault-paths.mjs && node scripts/test-settings.mjs",
+    "test": "node scripts/test-vault-paths.mjs && node scripts/test-settings.mjs && node scripts/test-current-note.mjs && node scripts/test-current-note-lifecycle.mjs",
     "lint": "eslint .",
     "validate": "node scripts/validate-plugin-release.mjs",
     "validate:assets": "node scripts/validate-plugin-release.mjs --assets",

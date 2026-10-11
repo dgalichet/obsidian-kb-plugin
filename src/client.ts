@@ -1,4 +1,5 @@
 import { requestUrl } from "obsidian";
+import { request as httpRequest } from "http";
 import type {
   KbHealth,
   KbChunkRecord,
@@ -6,6 +7,7 @@ import type {
   KbSearchRequest,
   KbStatus,
   RelatedReport,
+  WorkspaceContextUpdate,
 } from "./types";
 
 interface JsonRpcResponse {
@@ -65,6 +67,67 @@ export class ObsidianKbClient {
 
   async shutdown(): Promise<void> {
     await this.postJson<unknown>("/shutdown", {});
+  }
+
+  async publishWorkspaceContext(context: WorkspaceContextUpdate): Promise<void> {
+    await this.workspaceRequest("POST", context);
+  }
+
+  async clearWorkspaceContext(identity: {
+    vault_path: string;
+    session_id: string;
+  }): Promise<void> {
+    await this.workspaceRequest("DELETE", identity);
+  }
+
+  private workspaceRequest(method: "POST" | "DELETE", body: unknown): Promise<void> {
+    const url = new URL(`${this.baseUrl}/workspace/context`);
+    if (
+      url.protocol !== "http:" ||
+      !["127.0.0.1", "localhost", "[::1]"].includes(url.hostname)
+    ) {
+      return Promise.reject(new Error("Workspace context requires a loopback HTTP service"));
+    }
+    // serve binds IPv4 loopback; avoid IPv6-only localhost resolution on older
+    // Electron versions and keep this channel independent of DNS resolution.
+    if (url.hostname === "localhost") {
+      url.hostname = "127.0.0.1";
+    }
+    const data = JSON.stringify(body);
+    return new Promise((resolve, reject) => {
+      // Native HTTP keeps this desktop-only context channel bounded and
+      // cancellable, including if the service accepts but never responds.
+      const request = httpRequest(url, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          "Content-Length": Buffer.byteLength(data),
+        },
+      }, (response) => {
+        response.on("error", (error) => {
+          window.clearTimeout(deadline);
+          reject(error);
+        });
+        response.resume();
+        response.on("end", () => {
+          window.clearTimeout(deadline);
+          const status = response.statusCode ?? 0;
+          if (status >= 200 && status < 300) {
+            resolve();
+          } else {
+            reject(new Error(`Workspace context returned HTTP ${status}`));
+          }
+        });
+      });
+      const deadline = window.setTimeout(() => {
+        request.destroy(new Error("Workspace context request timed out"));
+      }, 3000);
+      request.on("error", (error) => {
+        window.clearTimeout(deadline);
+        reject(error);
+      });
+      request.end(data);
+    });
   }
 
   private async callMcpTool<T>(

@@ -1,5 +1,17 @@
 export type SearchMode = "hybrid" | "bm25" | "vector";
 
+export interface CurrentNoteIdentity {
+  path: string;
+  title: string;
+}
+
+export interface WorkspaceContextUpdate {
+  vault_path: string;
+  session_id: string;
+  context_version: number;
+  note: CurrentNoteIdentity | null;
+}
+
 export interface ObsidianKbSettings {
   executablePath: string;
   configPath: string;
