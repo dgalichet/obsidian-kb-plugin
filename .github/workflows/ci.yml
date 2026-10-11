@@ -30,7 +30,7 @@ jobs:
       - name: Validate metadata
         run: npm run validate
 
-      - name: Test vault path normalization
+      - name: Test plugin behavior
         run: npm test
 
       - name: Build release assets

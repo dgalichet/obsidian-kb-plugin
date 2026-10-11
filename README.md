@@ -186,6 +186,10 @@ It only installs the Obsidian plugin assets; you still need to install the
 The default `obsidian-kb` config file is `.obsidian-kb.toml`, and the default
 sidecar index directory is `<vault>/.obsidian-kb`.
 
+On Obsidian 1.13 and later, all OKB settings and action rows are available in
+global settings search. Earlier versions use the same settings through the
+classic settings tab; Obsidian 1.5 remains supported.
+
 ## Locality And Security
 
 OKB talks to a local HTTP service on `127.0.0.1` by default. The companion
