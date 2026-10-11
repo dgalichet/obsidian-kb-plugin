@@ -6,10 +6,12 @@ import { build } from "esbuild";
 // Keep the production plugin lifecycle and publisher. Replace only external
 // effects and panel UI: this test must never read a real vault or start a process.
 const substitutes = {
-  "./client": `export class ObsidianKbClient {
+  "./client": `import { WorkspaceContextUnsupportedError } from "./workspace-context-error";
+    export class ObsidianKbClient {
     constructor(url) {
       this.url = url; this.healthy = true; this.healthCalls = 0;
-      this.updates = []; this.cleared = []; this.shutdowns = 0;
+      this.updates = []; this.published = []; this.cleared = []; this.shutdowns = 0;
+      this.unsupported = __lifecycle.unsupported;
       __lifecycle.clients.push(this);
     }
     async health() {
@@ -17,7 +19,11 @@ const substitutes = {
       if (!this.healthy) throw new Error("Service offline");
       return {};
     }
-    async publishWorkspaceContext(update) { this.updates.push(update); }
+    async publishWorkspaceContext(update) {
+      this.updates.push(update);
+      if (this.unsupported) throw new WorkspaceContextUnsupportedError();
+      this.published.push(update);
+    }
     async clearWorkspaceContext(identity) { this.cleared.push(identity); }
     async shutdown() { this.shutdowns += 1; }
   }`,
@@ -57,7 +63,7 @@ const bundle = await build({
         path: args.path, namespace: "lifecycle-fixtures",
       }));
       builder.onLoad({ filter: /.*/, namespace: "lifecycle-fixtures" }, (args) => ({
-        contents: substitutes[args.path], loader: "js",
+        contents: substitutes[args.path], loader: "js", resolveDir: `${process.cwd()}/src`,
       }));
     },
   }],
@@ -103,7 +109,7 @@ class PluginHost {
 const timers = new Map();
 const windowListeners = new Map();
 let timerId = 0;
-const lifecycle = { clients: [] };
+const lifecycle = { clients: [], notices: [], unsupported: false };
 const module = { exports: {} };
 const require = createRequire(import.meta.url);
 const sandbox = {
@@ -115,7 +121,7 @@ const sandbox = {
     FileSystemAdapter,
     MarkdownView,
     Platform: { isDesktopApp: true, isWin: false },
-    Notice: class { constructor(message) { assert.fail(`Unexpected notice: ${message}`); } },
+    Notice: class { constructor(message, duration) { lifecycle.notices.push({ message, duration }); } },
     addIcon() {},
   } : require(name),
   console,
@@ -257,4 +263,44 @@ workspace.emit("file-open");
 await settle();
 assert.equal(timers.size, 0);
 assert.equal(replacementClient.updates.length, 1);
-console.log("Current note integration with actual plugin startup, events, reconnect, and unload passed.");
+assert.equal(lifecycle.notices.length, 0, "Existing publication must remain silent");
+
+// Starting against an older service must recommend an upgrade without requiring
+// the OKB panel. Repeated failures are silent, and an upgrade resumes publication.
+lifecycle.unsupported = true;
+openNote("Upgrade.md");
+const olderServicePlugin = new ActualPlugin();
+olderServicePlugin.app = { workspace, vault };
+olderServicePlugin.savedData = { autoStart: false };
+await olderServicePlugin.onload();
+const olderServiceClient = lifecycle.clients.at(-1);
+assert.equal(layoutReady.length, 2);
+assert.equal(olderServicePlugin.viewFactories.length, 1);
+assert.equal(lifecycle.notices.length, 0, "Do not notify before attempting publication");
+layoutReady[1]();
+await tick(150);
+assert.equal(olderServiceClient.updates.length, 1);
+assert.equal(olderServiceClient.published.length, 0);
+assert.deepEqual(lifecycle.notices, [{
+  message: "Current note sharing requires a newer obsidian-kb version. Update obsidian-kb, then restart the local service.",
+  duration: 10_000,
+}]);
+await tick(20_000);
+openNote("Still current.md");
+workspace.emit("file-open");
+await tick(150);
+assert.equal(olderServiceClient.updates.length, 3);
+assert.equal(lifecycle.notices.length, 1, "Navigation and retry must not repeat the notice");
+olderServiceClient.unsupported = false;
+await tick(20_000);
+assert.equal(olderServiceClient.published.length, 1);
+assert.equal(olderServiceClient.published[0].note.path, "Still current.md");
+assert.equal(lifecycle.notices.length, 1);
+olderServicePlugin.unload();
+await settle();
+assert.equal(olderServiceClient.cleared.length, 1);
+assert.equal(timers.size, 0);
+assert.equal(workspace.subscriptions.size, 0);
+assert.equal(vault.subscriptions.size, 0);
+assert.ok([...windowListeners.values()].every((listeners) => listeners.size === 0));
+console.log("Current note plugin startup, events, reconnect, upgrade recommendation, and unload passed.");

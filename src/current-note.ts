@@ -2,6 +2,7 @@ import type { App } from "obsidian";
 import { MarkdownView } from "obsidian";
 import { randomUUID } from "crypto";
 import type { CurrentNoteIdentity, WorkspaceContextUpdate } from "./types";
+import { WorkspaceContextUnsupportedError } from "./workspace-context-error";
 
 export interface WorkspaceContextTransport {
   publishWorkspaceContext(context: WorkspaceContextUpdate): Promise<void>;
@@ -34,11 +35,13 @@ export class CurrentNotePublisher {
   private stopped = false;
   private running: Promise<void> | null = null;
   private lastTransport: WorkspaceContextTransport | null = null;
+  private upgradeNoticeShown = false;
 
   constructor(
     private readonly vaultPath: string,
     private readonly readNote: () => CurrentNoteIdentity | null,
     private readonly transport: () => WorkspaceContextTransport,
+    private readonly onUnsupported: () => void = () => {},
   ) {}
 
   start(): void {
@@ -125,7 +128,18 @@ export class CurrentNotePublisher {
       };
       try {
         await client.publishWorkspaceContext(update);
-      } catch {
+      } catch (error) {
+        if (
+          error instanceof WorkspaceContextUnsupportedError &&
+          !this.upgradeNoticeShown && !this.stopped
+        ) {
+          this.upgradeNoticeShown = true;
+          try {
+            this.onUnsupported();
+          } catch {
+            // UI feedback must not turn an optional feature into a failure.
+          }
+        }
         // An older/stopped service must not disrupt Obsidian. The next
         // heartbeat retries the latest context, including after a restart.
       }

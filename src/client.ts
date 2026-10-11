@@ -1,5 +1,6 @@
 import { requestUrl } from "obsidian";
 import { request as httpRequest } from "http";
+import { WorkspaceContextUnsupportedError } from "./workspace-context-error";
 import type {
   KbHealth,
   KbChunkRecord,
@@ -114,6 +115,8 @@ export class ObsidianKbClient {
           const status = response.statusCode ?? 0;
           if (status >= 200 && status < 300) {
             resolve();
+          } else if (method === "POST" && (status === 404 || status === 405)) {
+            reject(new WorkspaceContextUnsupportedError());
           } else {
             reject(new Error(`Workspace context returned HTTP ${status}`));
           }

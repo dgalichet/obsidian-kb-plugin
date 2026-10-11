@@ -119,7 +119,12 @@ Context publication is restricted to loopback HTTP endpoints. The vault path
 comes from the opened Obsidian vault, even when the retrieval vault setting is
 overridden; a service configured for another vault rejects that context.
 Older services without workspace context support continue to handle search;
-upgrade the companion CLI to enable `get_current_note`.
+if the publication endpoint is missing or does not support POST, OKB shows one
+notice per plugin load recommending an `obsidian-kb` upgrade and local service
+restart. Network outages and other service errors do not trigger this upgrade
+notice. The heartbeat keeps retrying, so sharing resumes automatically once a
+compatible service is available. Upgrade the companion CLI to enable
+`get_current_note`.
 
 ## Requirements
 

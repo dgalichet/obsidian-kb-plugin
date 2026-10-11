@@ -151,6 +151,12 @@ export default class ObsidianKbPlugin extends Plugin {
       adapter.getBasePath(),
       () => currentNoteIdentity(this.app),
       () => this.client,
+      () => {
+        new Notice(
+          "Current note sharing requires a newer obsidian-kb version. Update obsidian-kb, then restart the local service.",
+          10_000,
+        );
+      },
     );
     this.currentNotePublisher = publisher;
     const refresh = (): void => publisher.refresh();
